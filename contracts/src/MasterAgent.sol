@@ -3,25 +3,27 @@ pragma solidity ^0.8.24;
 
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/utils/Pausable.sol";
 
 /**
  * @title MasterAgent
  * @notice Central orchestration contract that receives permissions from users
  * and delegates sub-permissions to specialized agents
  */
-contract MasterAgent is Ownable {
+contract MasterAgent is Ownable, Pausable {
     // Struct to track delegated permissions
     struct DelegatedPermission {
         address agent;
         uint256 dailyLimit;
         uint256 spentToday;
         uint256 lastResetTimestamp;
+        uint256 expiry;
         bool active;
     }
 
     // User -> Agent -> Permission
     mapping(address => mapping(address => DelegatedPermission)) public delegations;
-    
+
     // Track registered sub-agents
     mapping(address => bool) public registeredAgents;
     address[] public agentList;
@@ -30,7 +32,8 @@ contract MasterAgent is Ownable {
     event PermissionDelegated(
         address indexed user,
         address indexed agent,
-        uint256 dailyLimit
+        uint256 dailyLimit,
+        uint256 expiry
     );
     event PermissionRevoked(address indexed user, address indexed agent);
     event AgentRegistered(address indexed agent, string agentType);
@@ -39,6 +42,8 @@ contract MasterAgent is Ownable {
         address indexed agent,
         uint256 amount
     );
+    event EmergencyPaused(address indexed by);
+    event EmergencyUnpaused(address indexed by);
 
     constructor() Ownable(msg.sender) {}
 
@@ -56,19 +61,28 @@ contract MasterAgent is Ownable {
      * @notice Delegate permission to a sub-agent
      * @param agent Address of the sub-agent
      * @param dailyLimit Daily spending limit in wei
+     * @param duration Duration in seconds for which permission is valid
      */
-    function delegateToAgent(address agent, uint256 dailyLimit) external {
+    function delegateToAgent(
+        address agent,
+        uint256 dailyLimit,
+        uint256 duration
+    ) external whenNotPaused {
         require(registeredAgents[agent], "Agent not registered");
-        
+        require(duration > 0, "Duration must be positive");
+
+        uint256 expiry = block.timestamp + duration;
+
         delegations[msg.sender][agent] = DelegatedPermission({
             agent: agent,
             dailyLimit: dailyLimit,
             spentToday: 0,
             lastResetTimestamp: block.timestamp,
+            expiry: expiry,
             active: true
         });
 
-        emit PermissionDelegated(msg.sender, agent, dailyLimit);
+        emit PermissionDelegated(msg.sender, agent, dailyLimit, expiry);
     }
 
     /**
@@ -80,24 +94,39 @@ contract MasterAgent is Ownable {
     }
 
     /**
-     * @notice Check if agent can spend on behalf of user
+     * @notice Check if agent can spend on behalf of user (view function)
      */
     function canAgentSpend(
         address user,
         address agent,
         uint256 amount
-    ) public returns (bool) {
+    ) public view returns (bool) {
         DelegatedPermission storage permission = delegations[user][agent];
-        
+
         if (!permission.active) return false;
 
-        // Reset daily limit if new day
+        // Check if permission has expired
+        if (block.timestamp > permission.expiry) return false;
+
+        // Calculate current spent amount considering daily reset
+        uint256 currentSpent = permission.spentToday;
+        if (block.timestamp >= permission.lastResetTimestamp + 1 days) {
+            currentSpent = 0;
+        }
+
+        return (currentSpent + amount <= permission.dailyLimit);
+    }
+
+    /**
+     * @notice Internal function to reset daily limit if needed
+     */
+    function _resetDailyLimitIfNeeded(address user, address agent) internal {
+        DelegatedPermission storage permission = delegations[user][agent];
+
         if (block.timestamp >= permission.lastResetTimestamp + 1 days) {
             permission.spentToday = 0;
             permission.lastResetTimestamp = block.timestamp;
         }
-
-        return (permission.spentToday + amount <= permission.dailyLimit);
     }
 
     /**
@@ -109,9 +138,12 @@ contract MasterAgent is Ownable {
         uint256 amount,
         address token,
         bytes calldata data
-    ) external returns (bool) {
+    ) external whenNotPaused returns (bool) {
         require(registeredAgents[msg.sender], "Caller not registered agent");
         require(canAgentSpend(user, msg.sender, amount), "Insufficient permission");
+
+        // Reset daily limit if needed before updating
+        _resetDailyLimitIfNeeded(user, msg.sender);
 
         // Update spent amount
         DelegatedPermission storage permission = delegations[user][msg.sender];
@@ -121,6 +153,32 @@ contract MasterAgent is Ownable {
 
         // Execute the action (to be implemented by sub-agent)
         return true;
+    }
+
+    /**
+     * @notice Emergency pause - stops all agent executions
+     */
+    function pause() external onlyOwner {
+        _pause();
+        emit EmergencyPaused(msg.sender);
+    }
+
+    /**
+     * @notice Unpause after emergency
+     */
+    function unpause() external onlyOwner {
+        _unpause();
+        emit EmergencyUnpaused(msg.sender);
+    }
+
+    /**
+     * @notice Check if a delegation has expired
+     */
+    function isDelegationExpired(
+        address user,
+        address agent
+    ) external view returns (bool) {
+        return block.timestamp > delegations[user][agent].expiry;
     }
 
     /**

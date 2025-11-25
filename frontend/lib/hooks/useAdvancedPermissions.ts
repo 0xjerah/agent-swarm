@@ -1,13 +1,14 @@
 'use client';
 
 import { useCallback, useState } from 'react';
-import { useAccount, useChainId } from 'wagmi';
+import { useAccount, useChainId, useWalletClient } from 'wagmi';
 import type { PermissionRequest, Permission } from '../types/permissions';
-import { parseUnits } from 'viem';
+import { parseUnits, type WalletClient } from 'viem';
 
 export function useAdvancedPermissions() {
   const { address } = useAccount();
   const chainId = useChainId();
+  const { data: walletClient } = useWalletClient();
   const [isRequesting, setIsRequesting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
