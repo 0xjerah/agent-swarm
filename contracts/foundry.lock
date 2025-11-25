@@ -1,0 +1,14 @@
+{
+  "lib/delegation-framework": {
+    "tag": {
+      "name": "v1.3.0",
+      "rev": "bfbdf9795a976833ed2fa000baf42fbb83958b03"
+    }
+  },
+  "lib/openzeppelin-contracts": {
+    "tag": {
+      "name": "v5.5.0",
+      "rev": "fcbae5394ae8ad52d8e580a3477db99814b9d565"
+    }
+  }
+}
