@@ -2,28 +2,42 @@
 
 import { useCallback, useState } from 'react';
 import { useAccount, useChainId, useWalletClient } from 'wagmi';
-import type { PermissionRequest, Permission } from '../types/permissions';
-import { parseUnits, type WalletClient } from 'viem';
+import type {
+  PermissionRequest,
+  Permission,
+  GrantPermissionsResponse,
+} from '../types/permissions';
+import { parseUnits } from 'viem';
 
+/**
+ * Hook for ERC-7715 Advanced Permissions
+ * Based on latest MetaMask Smart Accounts Kit specifications
+ */
 export function useAdvancedPermissions() {
   const { address } = useAccount();
   const chainId = useChainId();
   const { data: walletClient } = useWalletClient();
   const [isRequesting, setIsRequesting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [permissionsContext, setPermissionsContext] = useState<string | null>(null);
 
   /**
-   * Request ERC-7715 Advanced Permissions from MetaMask
+   * Request ERC-20 token transfer permissions with rate limiting
    */
-  const requestPermissions = useCallback(
+  const requestERC20Permissions = useCallback(
     async (
-      spender: `0x${string}`,
       token: `0x${string}`,
-      dailyLimit: string,
-      durationDays: number = 30
-    ) => {
+      spender: `0x${string}`,
+      allowanceAmount: string,
+      durationSeconds: number = 30 * 24 * 60 * 60 // 30 days default
+    ): Promise<GrantPermissionsResponse | null> => {
       if (!address) {
         setError('Wallet not connected');
+        return null;
+      }
+
+      if (!walletClient) {
+        setError('Wallet client not available');
         return null;
       }
 
@@ -31,88 +45,83 @@ export function useAdvancedPermissions() {
       setError(null);
 
       try {
-        const ethereum = (window as any).ethereum;
-        if (!ethereum) {
-          throw new Error('MetaMask not installed');
-        }
+        const expiry = Math.floor(Date.now() / 1000) + durationSeconds;
 
-        // Calculate timestamps
-        const now = Math.floor(Date.now() / 1000);
-        const period = 86400; // 1 day in seconds
-        const expiry = now + durationDays * period;
-
-        // Build permission for ERC-20 recurring allowance
+        // Build ERC-7715 compliant permission request
         const permission: Permission = {
-          type: 'erc20-recurring-allowance',
+          type: 'erc20-token-transfer',
           data: {
             token: token,
-            allowance: parseUnits(dailyLimit, 6).toString(), // USDC has 6 decimals
-            start: now,
-            period: period,
-            end: expiry,
           },
-        };
-
-        // Build the full permission request (ERC-7715 format)
-        const permissionRequest: PermissionRequest = {
-          chainId: `eip155:${chainId}`,
-          address: spender,
-          expiry: expiry,
-          signer: {
-            type: 'keys',
-            data: {
-              keys: [
-                {
-                  type: 'secp256k1',
-                  publicKey: address,
-                },
-              ],
-            },
-          },
-          permissions: [permission],
           policies: [
             {
-              type: 'gas-limit',
+              type: 'token-allowance',
               data: {
-                limit: '1000000', // 1M gas limit
+                allowance: parseUnits(allowanceAmount, 6).toString(), // USDC has 6 decimals
               },
             },
           ],
         };
 
-        console.log('Requesting permissions:', permissionRequest);
+        const permissionRequest: PermissionRequest = {
+          account: address,
+          expiry: expiry,
+          permissions: [permission],
+        };
 
-        // Request permissions via wallet_grantPermissions (ERC-7715)
-        const result = await ethereum.request({
+        console.log('Requesting ERC-7715 permissions:', permissionRequest);
+
+        // Request permissions using wallet_grantPermissions
+        const result = await walletClient.request({
           method: 'wallet_grantPermissions',
           params: [permissionRequest],
         });
 
         console.log('Permissions granted:', result);
+
+        if (result && typeof result === 'object' && 'context' in result) {
+          const response = result as GrantPermissionsResponse;
+          setPermissionsContext(response.context);
+          setIsRequesting(false);
+          return response;
+        }
+
         setIsRequesting(false);
-        return result;
+        return result as GrantPermissionsResponse;
       } catch (err: any) {
         console.error('Error requesting permissions:', err);
-        setError(err.message || 'Failed to request permissions');
+
+        // Handle specific MetaMask errors
+        if (err.code === 4001) {
+          setError('User rejected the permission request');
+        } else if (err.code === -32601) {
+          setError('wallet_grantPermissions method not supported. Please use MetaMask with ERC-7715 support.');
+        } else {
+          setError(err.message || 'Failed to request permissions');
+        }
+
         setIsRequesting(false);
         return null;
       }
     },
-    [address, chainId]
+    [address, walletClient]
   );
 
   /**
-   * Request permissions for Master Agent with sub-agent delegation
+   * Request native token (ETH) transfer permissions
    */
-  const requestMasterAgentPermissions = useCallback(
+  const requestNativeTokenPermissions = useCallback(
     async (
-      masterAgent: `0x${string}`,
-      token: `0x${string}`,
-      totalDailyLimit: string,
-      durationDays: number = 30
-    ) => {
+      allowanceAmount: string, // in ETH
+      durationSeconds: number = 30 * 24 * 60 * 60
+    ): Promise<GrantPermissionsResponse | null> => {
       if (!address) {
         setError('Wallet not connected');
+        return null;
+      }
+
+      if (!walletClient) {
+        setError('Wallet client not available');
         return null;
       }
 
@@ -120,72 +129,130 @@ export function useAdvancedPermissions() {
       setError(null);
 
       try {
-        const ethereum = (window as any).ethereum;
-        if (!ethereum) {
-          throw new Error('MetaMask not installed');
-        }
+        const expiry = Math.floor(Date.now() / 1000) + durationSeconds;
 
-        const now = Math.floor(Date.now() / 1000);
-        const period = 86400;
-        const expiry = now + durationDays * period;
-
-        // Grant permission to Master Agent
-        const permissionRequest: PermissionRequest = {
-          chainId: `eip155:${chainId}`,
-          address: masterAgent,
-          expiry: expiry,
-          signer: {
-            type: 'keys',
-            data: {
-              keys: [
-                {
-                  type: 'secp256k1',
-                  publicKey: address,
-                },
-              ],
-            },
+        const permission: Permission = {
+          type: 'native-token-transfer',
+          data: {
+            ticker: 'ETH',
           },
-          permissions: [
-            {
-              type: 'erc20-recurring-allowance',
-              data: {
-                token: token,
-                allowance: parseUnits(totalDailyLimit, 6).toString(),
-                start: now,
-                period: period,
-                end: expiry,
-              },
-            },
-          ],
           policies: [
             {
-              type: 'gas-limit',
+              type: 'token-allowance',
               data: {
-                limit: '2000000',
-              },
-            },
-            {
-              type: 'delegation',
-              data: {
-                delegates: [
-                  process.env.NEXT_PUBLIC_DCA_AGENT,
-                  process.env.NEXT_PUBLIC_YIELD_AGENT,
-                ],
+                allowance: parseUnits(allowanceAmount, 18).toString(),
               },
             },
           ],
         };
 
+        const permissionRequest: PermissionRequest = {
+          account: address,
+          expiry: expiry,
+          permissions: [permission],
+        };
+
+        console.log('Requesting native token permissions:', permissionRequest);
+
+        const result = await walletClient.request({
+          method: 'wallet_grantPermissions',
+          params: [permissionRequest],
+        });
+
+        console.log('Permissions granted:', result);
+
+        if (result && typeof result === 'object' && 'context' in result) {
+          const response = result as GrantPermissionsResponse;
+          setPermissionsContext(response.context);
+          setIsRequesting(false);
+          return response;
+        }
+
+        setIsRequesting(false);
+        return result as GrantPermissionsResponse;
+      } catch (err: any) {
+        console.error('Error requesting native token permissions:', err);
+        setError(err.message || 'Failed to request permissions');
+        setIsRequesting(false);
+        return null;
+      }
+    },
+    [address, walletClient]
+  );
+
+  /**
+   * Request contract call permissions for Master Agent
+   */
+  const requestMasterAgentPermissions = useCallback(
+    async (
+      masterAgentAddress: `0x${string}`,
+      token: `0x${string}`,
+      dailyLimit: string,
+      durationDays: number = 30
+    ): Promise<GrantPermissionsResponse | null> => {
+      if (!address) {
+        setError('Wallet not connected');
+        return null;
+      }
+
+      if (!walletClient) {
+        setError('Wallet client not available');
+        return null;
+      }
+
+      setIsRequesting(true);
+      setError(null);
+
+      try {
+        const expiry = Math.floor(Date.now() / 1000) + durationDays * 86400;
+
+        // Permission for ERC-20 transfers via the Master Agent
+        const permission: Permission = {
+          type: 'erc20-token-transfer',
+          data: {
+            token: token,
+          },
+          policies: [
+            {
+              type: 'token-allowance',
+              data: {
+                allowance: parseUnits(dailyLimit, 6).toString(),
+              },
+            },
+            {
+              type: 'rate-limit',
+              data: {
+                count: 1,
+                interval: 86400, // Daily limit
+              },
+            },
+          ],
+        };
+
+        const permissionRequest: PermissionRequest = {
+          account: address,
+          expiry: expiry,
+          permissions: [permission],
+        };
+
         console.log('Requesting master agent permissions:', permissionRequest);
 
-        const result = await ethereum.request({
+        const result = await walletClient.request({
           method: 'wallet_grantPermissions',
           params: [permissionRequest],
         });
 
         console.log('Master agent permissions granted:', result);
+
+        if (result && typeof result === 'object' && 'context' in result) {
+          const response = result as GrantPermissionsResponse;
+          setPermissionsContext(response.context);
+          setIsRequesting(false);
+          return response;
+        }
+
         setIsRequesting(false);
-        return result;
+        return result as GrantPermissionsResponse;
       } catch (err: any) {
         console.error('Error requesting master agent permissions:', err);
         setError(err.message || 'Failed to request permissions');
@@ -193,51 +260,71 @@ export function useAdvancedPermissions() {
         return null;
       }
     },
-    [address, chainId]
+    [address, walletClient]
   );
 
   /**
-   * Revoke permissions
+   * Revoke permissions (if supported)
    */
   const revokePermissions = useCallback(
-    async (spender: `0x${string}`) => {
+    async (context: string): Promise<boolean> => {
       if (!address) {
         setError('Wallet not connected');
-        return null;
+        return false;
+      }
+
+      if (!walletClient) {
+        setError('Wallet client not available');
+        return false;
       }
 
       try {
-        const ethereum = (window as any).ethereum;
-        if (!ethereum) {
-          throw new Error('MetaMask not installed');
-        }
-
-        const result = await ethereum.request({
+        await walletClient.request({
           method: 'wallet_revokePermissions',
-          params: [
-            {
-              chainId: `eip155:${chainId}`,
-              address: spender,
-            },
-          ],
+          params: [{ context }],
         });
 
-        console.log('Permissions revoked:', result);
-        return result;
+        console.log('Permissions revoked');
+        setPermissionsContext(null);
+        return true;
       } catch (err: any) {
         console.error('Error revoking permissions:', err);
         setError(err.message || 'Failed to revoke permissions');
-        return null;
+        return false;
       }
     },
-    [address, chainId]
+    [address, walletClient]
   );
 
+  /**
+   * Check if ERC-7715 is supported
+   */
+  const checkSupport = useCallback(async (): Promise<boolean> => {
+    if (!walletClient) return false;
+
+    try {
+      // Try to get wallet capabilities
+      const capabilities = await walletClient.request({
+        method: 'wallet_getCapabilities',
+        params: [address],
+      });
+
+      console.log('Wallet capabilities:', capabilities);
+      return true;
+    } catch (err) {
+      console.warn('ERC-7715 may not be supported:', err);
+      return false;
+    }
+  }, [address, walletClient]);
+
   return {
-    requestPermissions,
+    requestERC20Permissions,
+    requestNativeTokenPermissions,
     requestMasterAgentPermissions,
     revokePermissions,
+    checkSupport,
     isRequesting,
     error,
+    permissionsContext,
   };
 }
