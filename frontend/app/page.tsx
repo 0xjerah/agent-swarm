@@ -5,13 +5,14 @@ import { useState } from 'react';
 import DelegatePermission from '@/components/DelegatePermission';
 import CreateDCASchedule from '@/components/CreateDCASchedule';
 import PermissionTree from '@/components/PermissionTree';
+import CreateYieldStrategy from '@/components/CreateYieldStrategy';
 
 export default function Home() {
   const { address, isConnected } = useAccount();
   const { connect, connectors } = useConnect();
   const { disconnect } = useDisconnect();
 
-  const [activeTab, setActiveTab] = useState<'delegate' | 'schedule' | 'tree'>('delegate');
+  const [activeTab, setActiveTab] = useState<'delegate' | 'dca' | 'yield' | 'tree'>('delegate');
 
   if (!isConnected) {
     return (
@@ -69,6 +70,16 @@ export default function Home() {
             Delegate Permissions
           </button>
           <button
+            onClick={() => setActiveTab('yield')}
+            className={`flex-1 py-2 px-4 rounded-lg font-medium transition ${
+              activeTab === 'yield'
+                ? 'bg-green-600 text-white'
+                : 'text-gray-600 hover:bg-gray-100'
+            }`}
+          >
+            Yield Strategy
+          </button>
+          <button
             onClick={() => setActiveTab('schedule')}
             className={`flex-1 py-2 px-4 rounded-lg font-medium transition ${
               activeTab === 'schedule'
@@ -93,6 +104,7 @@ export default function Home() {
         {/* Content */}
         {activeTab === 'delegate' && <DelegatePermission />}
         {activeTab === 'schedule' && <CreateDCASchedule />}
+        {activeTab === 'yield' && <CreateYieldStrategy />}
         {activeTab === 'tree' && <PermissionTree />}
       </div>
     </div>
