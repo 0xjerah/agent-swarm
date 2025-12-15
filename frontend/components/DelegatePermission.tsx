@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { useAccount, useWriteContract, useWaitForTransactionReceipt } from 'wagmi';
 import { parseUnits } from 'viem';
-import { masterAgentABI } from '@/lib/abis/masterAgent';
+import { masterAgentABI } from '@/lib/abis/generated/masterAgent';
 import { useAdvancedPermissions } from '@/lib/hooks/useAdvancedPermissions';
 import { CheckCircle, Loader2, AlertCircle } from 'lucide-react';
 
@@ -48,11 +48,10 @@ export default function DelegatePermission() {
     if (!dailyLimit) return;
 
     const dcaAgentAddress = process.env.NEXT_PUBLIC_DCA_AGENT as `0x${string}`;
-    const yieldAgentAddress = process.env.NEXT_PUBLIC_YIELD_AGENT as `0x${string}`;
     const masterAgentAddress = process.env.NEXT_PUBLIC_MASTER_AGENT as `0x${string}`;
 
-    // Delegate 50% to DCA, 50% to Yield
-    const halfLimit = parseUnits((parseFloat(dailyLimit) / 2).toString(), 6);
+    // Convert duration from days to seconds
+    const durationInSeconds = BigInt(parseInt(durationDays) * 86400);
 
     // For simplicity, we'll just delegate to DCA agent first
     // In production, you'd want to batch these transactions
@@ -60,7 +59,11 @@ export default function DelegatePermission() {
       address: masterAgentAddress,
       abi: masterAgentABI,
       functionName: 'delegateToAgent',
-      args: [dcaAgentAddress, parseUnits(dailyLimit, 6)],
+      args: [
+        dcaAgentAddress,
+        parseUnits(dailyLimit, 6), // dailyLimit
+        durationInSeconds, // duration in seconds
+      ],
     });
   };
 

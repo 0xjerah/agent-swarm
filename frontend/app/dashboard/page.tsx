@@ -7,6 +7,8 @@ import DelegatePermission from '@/components/DelegatePermission';
 import CreateDCASchedule from '@/components/CreateDCASchedule';
 import PermissionTree from '@/components/PermissionTree';
 import CreateYieldStrategy from '@/components/CreateYieldStrategy';
+import AnalyticsDashboard from '@/components/AnalyticsDashboard';
+import TransactionHistory from '@/components/TransactionHistory';
 
 export default function Dashboard() {
   const { address, isConnected } = useAccount();
@@ -14,7 +16,7 @@ export default function Dashboard() {
   const { disconnect } = useDisconnect();
   const router = useRouter();
 
-  const [activeTab, setActiveTab] = useState<'delegate' | 'dca' | 'yield' | 'tree'>('delegate');
+  const [activeTab, setActiveTab] = useState<'analytics' | 'delegate' | 'dca' | 'yield' | 'tree' | 'history'>('analytics');
 
   if (!isConnected) {
     return (
@@ -84,55 +86,77 @@ export default function Dashboard() {
 
       {/* Tabs */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-        <div className="bg-white/5 backdrop-blur-md border border-white/10 rounded-xl p-2 flex gap-2 mb-6">
+        <div className="bg-white/5 backdrop-blur-md border border-white/10 rounded-xl p-2 flex gap-2 mb-6 overflow-x-auto">
+          <button
+            onClick={() => setActiveTab('analytics')}
+            className={`flex-1 py-3 px-4 rounded-lg font-medium transition-all duration-300 whitespace-nowrap ${
+              activeTab === 'analytics'
+                ? 'bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow-lg'
+                : 'text-gray-300 hover:bg-white/5'
+            }`}
+          >
+            Analytics
+          </button>
           <button
             onClick={() => setActiveTab('delegate')}
-            className={`flex-1 py-3 px-4 rounded-lg font-medium transition-all duration-300 ${
+            className={`flex-1 py-3 px-4 rounded-lg font-medium transition-all duration-300 whitespace-nowrap ${
               activeTab === 'delegate'
                 ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-lg'
                 : 'text-gray-300 hover:bg-white/5'
             }`}
           >
-            Delegate Permissions
+            Delegate
+          </button>
+          <button
+            onClick={() => setActiveTab('dca')}
+            className={`flex-1 py-3 px-4 rounded-lg font-medium transition-all duration-300 whitespace-nowrap ${
+              activeTab === 'dca'
+                ? 'bg-gradient-to-r from-blue-600 to-cyan-600 text-white shadow-lg'
+                : 'text-gray-300 hover:bg-white/5'
+            }`}
+          >
+            DCA
           </button>
           <button
             onClick={() => setActiveTab('yield')}
-            className={`flex-1 py-3 px-4 rounded-lg font-medium transition-all duration-300 ${
+            className={`flex-1 py-3 px-4 rounded-lg font-medium transition-all duration-300 whitespace-nowrap ${
               activeTab === 'yield'
                 ? 'bg-gradient-to-r from-green-600 to-teal-600 text-white shadow-lg'
                 : 'text-gray-300 hover:bg-white/5'
             }`}
           >
-            Yield Strategy
-          </button>
-          <button
-            onClick={() => setActiveTab('dca')}
-            className={`flex-1 py-3 px-4 rounded-lg font-medium transition-all duration-300 ${
-              activeTab === 'dca'
-                ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-lg'
-                : 'text-gray-300 hover:bg-white/5'
-            }`}
-          >
-            DCA Schedule
+            Yield
           </button>
           <button
             onClick={() => setActiveTab('tree')}
-            className={`flex-1 py-3 px-4 rounded-lg font-medium transition-all duration-300 ${
+            className={`flex-1 py-3 px-4 rounded-lg font-medium transition-all duration-300 whitespace-nowrap ${
               activeTab === 'tree'
                 ? 'bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow-lg'
                 : 'text-gray-300 hover:bg-white/5'
             }`}
           >
-            Permission Tree
+            Tree
+          </button>
+          <button
+            onClick={() => setActiveTab('history')}
+            className={`flex-1 py-3 px-4 rounded-lg font-medium transition-all duration-300 whitespace-nowrap ${
+              activeTab === 'history'
+                ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-lg'
+                : 'text-gray-300 hover:bg-white/5'
+            }`}
+          >
+            History
           </button>
         </div>
 
         {/* Content */}
         <div className="bg-white/5 backdrop-blur-md border border-white/10 rounded-xl p-6">
+          {activeTab === 'analytics' && <AnalyticsDashboard />}
           {activeTab === 'delegate' && <DelegatePermission />}
           {activeTab === 'dca' && <CreateDCASchedule />}
           {activeTab === 'yield' && <CreateYieldStrategy />}
           {activeTab === 'tree' && <PermissionTree />}
+          {activeTab === 'history' && <TransactionHistory />}
         </div>
       </div>
     </div>

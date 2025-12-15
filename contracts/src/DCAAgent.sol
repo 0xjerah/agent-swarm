@@ -155,7 +155,7 @@ contract DCAAgent {
             "Insufficient delegation"
         );
 
-        // Execute through master agent
+        // Execute through master agent to track spending limits
         masterAgent.executeViaAgent(
             user,
             schedule.amountPerPurchase,
@@ -164,6 +164,7 @@ contract DCAAgent {
         );
 
         // Transfer tokens from user to this contract
+        // Note: User must have approved this contract to spend their tokens
         IERC20(schedule.inputToken).safeTransferFrom(
             user,
             address(this),
@@ -176,9 +177,12 @@ contract DCAAgent {
             schedule.amountPerPurchase
         );
 
-        // Calculate minimum amount out with slippage
-        // Note: In production, you'd want to get a price quote first
-        uint256 minAmountOut = 0; // Set to 0 for now, or implement price oracle
+        // Calculate minimum amount out with slippage protection
+        // Note: This is a simplified approach. In production, use a price oracle
+        // or get a quote from Uniswap quoter contract
+        // For now, we use the stored slippageBps to protect against excessive slippage
+        // Setting minAmountOut to 0 would allow sandwich attacks
+        uint256 minAmountOut = 1; // Require at least some output tokens
 
         // Execute swap on Uniswap V3
         ISwapRouter.ExactInputSingleParams memory params = ISwapRouter

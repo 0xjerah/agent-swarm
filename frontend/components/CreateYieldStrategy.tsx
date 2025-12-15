@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { useWriteContract, useWaitForTransactionReceipt } from 'wagmi';
 import { parseUnits } from 'viem';
-import { yieldAgentABI } from '@/lib/abis/yieldAgent';
+import { yieldAgentABI } from '@/lib/abis/generated/yieldAgent';
 import { TrendingUp, Loader2, CheckCircle } from 'lucide-react';
 
 export default function CreateYieldStrategy() {
@@ -17,13 +17,20 @@ export default function CreateYieldStrategy() {
     if (!amount) return;
 
     const yieldAgentAddress = process.env.NEXT_PUBLIC_YIELD_AGENT as `0x${string}`;
-    const mockUSDC = process.env.NEXT_PUBLIC_MOCK_USDC as `0x${string}`;
+    const usdcAddress = process.env.NEXT_PUBLIC_USDC_ADDRESS as `0x${string}`;
+    // Aave V3 Sepolia aUSDC address
+    const aUsdcAddress = '0x16dA4541aD1807f4443d92D26044C1147406EB80' as `0x${string}`;
 
     writeContract({
       address: yieldAgentAddress,
       abi: yieldAgentABI,
       functionName: 'createYieldStrategy',
-      args: [mockUSDC, parseInt(strategyType), parseUnits(amount, 6)],
+      args: [
+        usdcAddress,        // token
+        aUsdcAddress,       // aToken
+        parseInt(strategyType), // strategyType (enum)
+        parseUnits(amount, 6),  // targetAllocation
+      ],
     });
   };
 

@@ -1,7 +1,7 @@
 'use client';
 
 import { useAccount, useReadContract } from 'wagmi';
-import { masterAgentABI } from '@/lib/abis/masterAgent';
+import { masterAgentABI } from '@/lib/abis/generated/masterAgent';
 import { formatUnits } from 'viem';
 import { Bot, TrendingUp, Repeat } from 'lucide-react';
 

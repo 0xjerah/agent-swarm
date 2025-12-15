@@ -3,12 +3,14 @@
 import { useState } from 'react';
 import { useWriteContract, useWaitForTransactionReceipt } from 'wagmi';
 import { parseUnits } from 'viem';
-import { dcaAgentABI } from '@/lib/abis/dcaAgent';
+import { dcaAgentABI } from '@/lib/abis/generated/dcaAgent';
 import { Loader2, CheckCircle, TrendingUp } from 'lucide-react';
 
 export default function CreateDCASchedule() {
   const [amount, setAmount] = useState('');
   const [interval, setInterval] = useState('86400'); // 1 day in seconds
+  const [poolFee, setPoolFee] = useState('3000'); // 0.3% default
+  const [slippage, setSlippage] = useState('50'); // 0.5% default
 
   const { data: hash, writeContract, isPending } = useWriteContract();
   const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash });
@@ -17,18 +19,20 @@ export default function CreateDCASchedule() {
     if (!amount) return;
 
     const dcaAgentAddress = process.env.NEXT_PUBLIC_DCA_AGENT as `0x${string}`;
-    const mockUSDC = process.env.NEXT_PUBLIC_MOCK_USDC as `0x${string}`;
-    const mockETH = '0x0000000000000000000000000000000000000000'; // ETH
+    const usdcAddress = process.env.NEXT_PUBLIC_USDC_ADDRESS as `0x${string}`;
+    const wethAddress = process.env.NEXT_PUBLIC_WETH_ADDRESS as `0x${string}`;
 
     writeContract({
       address: dcaAgentAddress,
       abi: dcaAgentABI,
       functionName: 'createDCASchedule',
       args: [
-        mockUSDC,
-        mockETH,
-        parseUnits(amount, 6),
+        usdcAddress,
+        wethAddress,
+        parseUnits(amount, 6), // USDC has 6 decimals
         BigInt(interval),
+        parseInt(poolFee), // poolFee as uint24
+        BigInt(slippage), // slippageBps
       ],
     });
   };
@@ -86,6 +90,45 @@ export default function CreateDCASchedule() {
           <p className="text-xs text-gray-400 mt-2 flex items-center gap-1.5">
             <span className="w-1 h-1 bg-cyan-400 rounded-full"></span>
             Automated purchases reduce timing risk
+          </p>
+        </div>
+
+        <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-xl p-5 hover:bg-white/[0.07] transition-all duration-300">
+          <label className="block text-sm font-semibold text-white mb-3">
+            Uniswap Pool Fee
+          </label>
+          <select
+            value={poolFee}
+            onChange={(e) => setPoolFee(e.target.value)}
+            className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-lg text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:bg-white/[0.15] transition-all duration-300"
+          >
+            <option value="500" className="bg-slate-800">0.05% (Stable pairs)</option>
+            <option value="3000" className="bg-slate-800">0.30% (Standard)</option>
+            <option value="10000" className="bg-slate-800">1.00% (Exotic pairs)</option>
+          </select>
+          <p className="text-xs text-gray-400 mt-2 flex items-center gap-1.5">
+            <span className="w-1 h-1 bg-cyan-400 rounded-full"></span>
+            Lower fees for more liquid pairs
+          </p>
+        </div>
+
+        <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-xl p-5 hover:bg-white/[0.07] transition-all duration-300">
+          <label className="block text-sm font-semibold text-white mb-3">
+            Slippage Tolerance
+          </label>
+          <select
+            value={slippage}
+            onChange={(e) => setSlippage(e.target.value)}
+            className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-lg text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:bg-white/[0.15] transition-all duration-300"
+          >
+            <option value="10" className="bg-slate-800">0.1%</option>
+            <option value="50" className="bg-slate-800">0.5%</option>
+            <option value="100" className="bg-slate-800">1.0%</option>
+            <option value="300" className="bg-slate-800">3.0%</option>
+          </select>
+          <p className="text-xs text-gray-400 mt-2 flex items-center gap-1.5">
+            <span className="w-1 h-1 bg-cyan-400 rounded-full"></span>
+            Higher slippage for volatile markets
           </p>
         </div>
 
