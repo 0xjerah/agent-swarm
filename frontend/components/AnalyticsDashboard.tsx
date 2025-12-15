@@ -1,7 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { useAccount, useReadContract, useReadContracts } from 'wagmi';
+import { useAccount, useReadContract } from 'wagmi';
 import { formatUnits } from 'viem';
 import { masterAgentABI } from '@/lib/abis/generated/masterAgent';
 import { dcaAgentABI } from '@/lib/abis/generated/dcaAgent';
@@ -46,28 +45,17 @@ export default function AnalyticsDashboard() {
     args: address ? [address, yieldAgentAddress] : undefined,
   });
 
-  // Fetch individual DCA schedules
-  const [dcaSchedules, setDcaSchedules] = useState<any[]>([]);
-  const [yieldStrategies, setYieldStrategies] = useState<any[]>([]);
-
-  useEffect(() => {
-    if (dcaScheduleCount && Number(dcaScheduleCount) > 0) {
-      const schedulePromises = Array.from({ length: Number(dcaScheduleCount) }, (_, i) => i);
-      // We'll fetch these in the render
-    }
-  }, [dcaScheduleCount, address]);
-
   // Calculate stats
   const totalSchedules = Number(dcaScheduleCount || 0);
   const totalStrategies = Number(yieldStrategyCount || 0);
 
-  const dcaDailyLimit = dcaDelegation ? formatUnits(dcaDelegation[1], 6) : '0';
-  const dcaSpentToday = dcaDelegation ? formatUnits(dcaDelegation[2], 6) : '0';
-  const dcaActive = dcaDelegation ? dcaDelegation[4] : false;
+  const dcaDailyLimit = dcaDelegation?.dailyLimit !== undefined ? formatUnits(dcaDelegation.dailyLimit, 6) : '0';
+  const dcaSpentToday = dcaDelegation?.spentToday !== undefined ? formatUnits(dcaDelegation.spentToday, 6) : '0';
+  const dcaActive = dcaDelegation?.active ?? false;
 
-  const yieldDailyLimit = yieldDelegation ? formatUnits(yieldDelegation[1], 6) : '0';
-  const yieldSpentToday = yieldDelegation ? formatUnits(yieldDelegation[2], 6) : '0';
-  const yieldActive = yieldDelegation ? yieldDelegation[4] : false;
+  const yieldDailyLimit = yieldDelegation?.dailyLimit !== undefined ? formatUnits(yieldDelegation.dailyLimit, 6) : '0';
+  const yieldSpentToday = yieldDelegation?.spentToday !== undefined ? formatUnits(yieldDelegation.spentToday, 6) : '0';
+  const yieldActive = yieldDelegation?.active ?? false;
 
   const totalDailyLimit = parseFloat(dcaDailyLimit) + parseFloat(yieldDailyLimit);
   const totalSpentToday = parseFloat(dcaSpentToday) + parseFloat(yieldSpentToday);

@@ -1,7 +1,7 @@
 'use client';
 
 import { useAccount, useConnect, useDisconnect } from 'wagmi';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import DelegatePermission from '@/components/DelegatePermission';
 import CreateDCASchedule from '@/components/CreateDCASchedule';
@@ -17,6 +17,15 @@ export default function Dashboard() {
   const router = useRouter();
 
   const [activeTab, setActiveTab] = useState<'analytics' | 'delegate' | 'dca' | 'yield' | 'tree' | 'history'>('analytics');
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  if (!mounted) {
+    return null;
+  }
 
   if (!isConnected) {
     return (
