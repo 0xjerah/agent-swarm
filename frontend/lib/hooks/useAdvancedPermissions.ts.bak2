@@ -1,9 +1,7 @@
 'use client';
 
 import { useCallback, useState } from 'react';
-import { useAccount, useChainId } from 'wagmi';
-import { createWalletClient, custom } from 'viem';
-import { erc7715ProviderActions } from '@metamask/delegation-toolkit/experimental';
+import { useAccount, useChainId, useWalletClient } from 'wagmi';
 import type {
   PermissionRequest,
   Permission,
@@ -23,18 +21,14 @@ export function useAdvancedPermissions() {
   const [permissionsContext, setPermissionsContext] = useState<string | null>(null);
 
   /**
-   * Create wallet client with ERC-7715 actions (Gator SDK)
+   * Get provider from connector
    */
-  const getWalletClient = useCallback(() => {
-    // Use window.ethereum directly for MetaMask
-    if (typeof window === 'undefined' || !window.ethereum) {
-      throw new Error('MetaMask not detected. Please install MetaMask Flask.');
+  const getProvider = useCallback(async () => {
+    if (!connector) {
+      throw new Error('Wallet connector not available');
     }
-
-    return createWalletClient({
-      transport: custom(window.ethereum),
-    }).extend(erc7715ProviderActions());
-  }, []);
+    return await connector.getProvider();
+  }, [connector]);
 
   /**
    * Request ERC-20 token transfer permissions with rate limiting
@@ -80,14 +74,7 @@ export function useAdvancedPermissions() {
 
         const permissionRequest: PermissionRequest = {
           account: address,
-          chainId: `0x${chainId.toString(16)}`,
           expiry: expiry,
-          signer: {
-            type: 'account',
-            data: {
-              id: address,
-            },
-          },
           permissions: [permission],
         };
 
@@ -120,7 +107,7 @@ export function useAdvancedPermissions() {
         if (err.code === 4001) {
           setError('User rejected the permission request');
         } else if (err.code === -32601) {
-          setError('ERC-7715 requires MetaMask Flask 13.5.0+ with Smart Accounts enabled. Install from https://metamask.io/flask/');
+          setError('wallet_grantPermissions method not supported. Please use MetaMask with ERC-7715 support.');
         } else {
           setError(err.message || 'Failed to request permissions');
         }
@@ -173,21 +160,13 @@ export function useAdvancedPermissions() {
 
         const permissionRequest: PermissionRequest = {
           account: address,
-          chainId: `0x${chainId.toString(16)}`,
           expiry: expiry,
-          signer: {
-            type: 'account',
-            data: {
-              id: address,
-            },
-          },
           permissions: [permission],
         };
 
         console.log('Requesting native token permissions:', permissionRequest);
 
-        const provider = await connector.getProvider();
-        const result = await (provider as any).request({
+        const result = await (walletClient.request as any)({
           method: 'wallet_grantPermissions',
           params: [permissionRequest],
         });
@@ -237,35 +216,7 @@ export function useAdvancedPermissions() {
       setError(null);
 
       try {
-        const currentTime = Math.floor(Date.now() / 1000);
-
-        // Ensure durationDays is a valid positive number
-        if (isNaN(durationDays) || durationDays <= 0) {
-          setError(`Invalid duration: ${durationDays} days`);
-          setIsRequesting(false);
-          return null;
-        }
-
-        const durationInSeconds = Math.floor(durationDays * 86400);
-        const expiry = currentTime + durationInSeconds;
-
-        // Validate that expiry is in the future
-        if (durationInSeconds <= 0 || expiry <= currentTime) {
-          setError(`Invalid duration: ${durationDays} days = ${durationInSeconds} seconds`);
-          setIsRequesting(false);
-          return null;
-        }
-
-        console.log('ERC-7715 Permission Request:', {
-          currentTime,
-          currentTimeReadable: new Date(currentTime * 1000).toISOString(),
-          durationDays: durationDays,
-          durationInSeconds,
-          expiry,
-          expiryReadable: new Date(expiry * 1000).toISOString(),
-          timeUntilExpiry: durationInSeconds,
-          isValid: expiry > currentTime,
-        });
+        const expiry = Math.floor(Date.now() / 1000) + durationDays * 86400;
 
         // Permission for ERC-20 transfers via the Master Agent
         const permission: Permission = {
@@ -292,97 +243,36 @@ export function useAdvancedPermissions() {
 
         const permissionRequest: PermissionRequest = {
           account: address,
-          chainId: `0x${chainId.toString(16)}`,
           expiry: expiry,
-          signer: {
-            type: 'account',
-            data: {
-              id: address,
-            },
-          },
           permissions: [permission],
         };
 
-        console.log('Requesting master agent permissions via Gator SDK:', permissionRequest);
+        console.log('Requesting master agent permissions:', permissionRequest);
 
-        // Use Gator SDK wallet client with ERC-7715 actions
-        console.log('Creating wallet client for ERC-7715...');
-        const walletClient = getWalletClient();
-        console.log('Wallet client created successfully');
-
-        // Convert to the format expected by requestExecutionPermissions
-        // Use a startTime slightly in the past to avoid race conditions
-        const permissionStartTime = currentTime - 60; // 1 minute buffer
-        const dailyLimitBigInt = parseUnits(dailyLimit, 6);
-        const amountPerSecond = dailyLimitBigInt / BigInt(86400); // Convert daily to per-second
-
-        console.log('Creating ERC-7715 stream permission:', {
-          startTime: permissionStartTime,
-          expiry,
-          duration: expiry - permissionStartTime,
-          amountPerSecond: amountPerSecond.toString(),
-          maxAmount: dailyLimitBigInt.toString(),
+        const result = await (walletClient.request as any)({
+          method: 'wallet_grantPermissions',
+          params: [permissionRequest],
         });
-
-        const execPermissionParams = [{
-          chainId: chainId,
-          expiry: expiry,
-          signer: {
-            type: 'account' as const,
-            data: {
-              address: address,
-            },
-          },
-          permission: {
-            type: 'erc20-token-stream' as const,
-            data: {
-              tokenAddress: token as `0x${string}`,
-              amountPerSecond: amountPerSecond,
-              initialAmount: BigInt(0), // Start with 0, accrue over time
-              maxAmount: dailyLimitBigInt,
-              startTime: permissionStartTime,
-              justification: `Permission to stream up to ${dailyLimit} USDC per day for AgentSwarm automation`,
-            },
-          },
-          isAdjustmentAllowed: false,
-        }];
-
-        console.log('Calling requestExecutionPermissions with params:', execPermissionParams);
-
-        const result = await walletClient.requestExecutionPermissions(execPermissionParams);
 
         console.log('Master agent permissions granted:', result);
 
-        // Result is an array of PermissionResponse
-        if (result && Array.isArray(result) && result.length > 0) {
-          const permissionResponse = result[0];
-          if (permissionResponse && 'context' in permissionResponse) {
-            setPermissionsContext(permissionResponse.context as string);
-            setIsRequesting(false);
-            return {
-              context: permissionResponse.context as string,
-            } as GrantPermissionsResponse;
-          }
+        if (result && typeof result === 'object' && 'context' in result) {
+          const response = result as GrantPermissionsResponse;
+          setPermissionsContext(response.context);
+          setIsRequesting(false);
+          return response;
         }
 
         setIsRequesting(false);
-        return null;
+        return result as GrantPermissionsResponse;
       } catch (err: any) {
         console.error('Error requesting master agent permissions:', err);
-
-        if (err.code === 4001) {
-          setError('User rejected the permission request');
-        } else if (err.code === -32601 || err.message?.includes('does not exist')) {
-          setError('Please use MetaMask Flask on Sepolia network. Snaps will auto-install on first permission request.');
-        } else {
-          setError(err.message || 'Failed to request permissions');
-        }
-
+        setError(err.message || 'Failed to request permissions');
         setIsRequesting(false);
         return null;
       }
     },
-    [address, connector, chainId, getWalletClient]
+    [address, connector]
   );
 
   /**
@@ -401,8 +291,7 @@ export function useAdvancedPermissions() {
       }
 
       try {
-        const provider = await connector.getProvider();
-        await (provider as any).request({
+        await (walletClient.request as any)({
           method: 'wallet_revokePermissions',
           params: [{ context }],
         });
@@ -423,12 +312,11 @@ export function useAdvancedPermissions() {
    * Check if ERC-7715 is supported
    */
   const checkSupport = useCallback(async (): Promise<boolean> => {
-    if (!connector) return false;
+    if (!walletClient) return false;
 
     try {
       // Try to get wallet capabilities
-      const provider = await connector.getProvider();
-      const capabilities = await (provider as any).request({
+      const capabilities = await (walletClient.request as any)({
         method: 'wallet_getCapabilities',
         params: [address],
       });

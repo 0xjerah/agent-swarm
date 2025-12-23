@@ -19,7 +19,7 @@ interface Transaction {
 
 export default function TransactionHistory() {
   const { address } = useAccount();
-  const publicClient = usePublicClient();
+  const publicClient = usePublicClient({ chainId: 11155111 }); // Sepolia testnet
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<'all' | 'permission' | 'dca' | 'yield'>('all');
@@ -35,7 +35,7 @@ export default function TransactionHistory() {
       setLoading(true);
       try {
         const currentBlock = await publicClient.getBlockNumber();
-        const fromBlock = currentBlock - 10000n; // Last ~10k blocks
+        const fromBlock = currentBlock - BigInt(999); // Last 999 blocks (RPC limit is 1000)
 
         // Fetch events from all contracts
         const [permissionLogs, dcaLogs, yieldLogs] = await Promise.all([
@@ -132,7 +132,7 @@ export default function TransactionHistory() {
               event: 'PermissionDelegated',
               details: {
                 agent: `0x${log.topics[2]?.slice(26)}`,
-                dailyLimit: log.data ? BigInt(log.data.slice(0, 66)) : 0n,
+                dailyLimit: log.data ? BigInt(log.data.slice(0, 66)) : BigInt(0),
               },
             });
           }

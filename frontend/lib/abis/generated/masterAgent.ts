@@ -144,9 +144,9 @@ export const masterAgentABI = [
         "internalType": "address"
       },
       {
-        "name": "data",
-        "type": "bytes",
-        "internalType": "bytes"
+        "name": "recipient",
+        "type": "address",
+        "internalType": "address"
       }
     ],
     "outputs": [

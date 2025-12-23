@@ -438,16 +438,5 @@ export const dcaAgentABI = [
       }
     ],
     "anonymous": false
-  },
-  {
-    "type": "error",
-    "name": "SafeERC20FailedOperation",
-    "inputs": [
-      {
-        "name": "token",
-        "type": "address",
-        "internalType": "address"
-      }
-    ]
   }
 ] as const;

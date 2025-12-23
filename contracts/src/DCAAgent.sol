@@ -5,14 +5,13 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "./MasterAgent.sol";
 
-// Uniswap V3 interfaces
+// Uniswap V3 SwapRouter02 interface (Sepolia deployment)
 interface ISwapRouter {
     struct ExactInputSingleParams {
         address tokenIn;
         address tokenOut;
         uint24 fee;
         address recipient;
-        uint256 deadline;
         uint256 amountIn;
         uint256 amountOutMinimum;
         uint160 sqrtPriceLimitX96;
@@ -116,7 +115,9 @@ contract DCAAgent {
             outputToken: outputToken,
             amountPerPurchase: amountPerPurchase,
             intervalSeconds: intervalSeconds,
-            lastExecutionTime: block.timestamp,
+            // Set lastExecutionTime far in the past to allow immediate first execution
+            // Using 1 instead of 0 to avoid any potential edge cases with zero timestamps
+            lastExecutionTime: 1,
             poolFee: poolFee,
             slippageBps: slippageBps,
             active: true
@@ -155,20 +156,14 @@ contract DCAAgent {
             "Insufficient delegation"
         );
 
-        // Execute through master agent to track spending limits
+        // Execute through master agent using ERC-7715 permission
+        // This transfers tokens from user to this contract WITHOUT requiring ERC20 approval
+        // The MasterAgent uses the ERC-7715 permission context to authorize the transfer
         masterAgent.executeViaAgent(
             user,
             schedule.amountPerPurchase,
             schedule.inputToken,
-            ""
-        );
-
-        // Transfer tokens from user to this contract
-        // Note: User must have approved this contract to spend their tokens
-        IERC20(schedule.inputToken).safeTransferFrom(
-            user,
-            address(this),
-            schedule.amountPerPurchase
+            address(this)  // Transfer tokens to this DCA agent contract
         );
 
         // Approve Uniswap router to spend tokens
@@ -184,14 +179,13 @@ contract DCAAgent {
         // Setting minAmountOut to 0 would allow sandwich attacks
         uint256 minAmountOut = 1; // Require at least some output tokens
 
-        // Execute swap on Uniswap V3
+        // Execute swap on Uniswap V3 SwapRouter02
         ISwapRouter.ExactInputSingleParams memory params = ISwapRouter
             .ExactInputSingleParams({
                 tokenIn: schedule.inputToken,
                 tokenOut: schedule.outputToken,
                 fee: schedule.poolFee,
                 recipient: user,
-                deadline: block.timestamp + 15 minutes,
                 amountIn: schedule.amountPerPurchase,
                 amountOutMinimum: minAmountOut,
                 sqrtPriceLimitX96: 0

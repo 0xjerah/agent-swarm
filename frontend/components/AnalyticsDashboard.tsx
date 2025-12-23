@@ -5,7 +5,8 @@ import { formatUnits } from 'viem';
 import { masterAgentABI } from '@/lib/abis/generated/masterAgent';
 import { dcaAgentABI } from '@/lib/abis/generated/dcaAgent';
 import { yieldAgentABI } from '@/lib/abis/generated/yieldAgent';
-import { TrendingUp, DollarSign, Activity, Clock, BarChart3 } from 'lucide-react';
+import { erc20Abi } from '@/lib/abis/erc20';
+import { TrendingUp, DollarSign, Activity, Clock, BarChart3, Wallet } from 'lucide-react';
 
 export default function AnalyticsDashboard() {
   const { address } = useAccount();
@@ -16,6 +17,7 @@ export default function AnalyticsDashboard() {
     abi: dcaAgentABI,
     functionName: 'getUserScheduleCount',
     args: address ? [address] : undefined,
+    chainId: 11155111, // Sepolia testnet
   });
 
   // Read Yield strategy count
@@ -24,18 +26,21 @@ export default function AnalyticsDashboard() {
     abi: yieldAgentABI,
     functionName: 'getUserStrategyCount',
     args: address ? [address] : undefined,
+    chainId: 11155111, // Sepolia testnet
   });
 
   // Read delegations for both agents
   const masterAgentAddress = process.env.NEXT_PUBLIC_MASTER_AGENT as `0x${string}`;
   const dcaAgentAddress = process.env.NEXT_PUBLIC_DCA_AGENT as `0x${string}`;
   const yieldAgentAddress = process.env.NEXT_PUBLIC_YIELD_AGENT as `0x${string}`;
+  const usdcAddress = process.env.NEXT_PUBLIC_USDC_ADDRESS as `0x${string}`;
 
   const { data: dcaDelegation } = useReadContract({
     address: masterAgentAddress,
     abi: masterAgentABI,
     functionName: 'getDelegation',
     args: address ? [address, dcaAgentAddress] : undefined,
+    chainId: 11155111, // Sepolia testnet
   });
 
   const { data: yieldDelegation } = useReadContract({
@@ -43,23 +48,47 @@ export default function AnalyticsDashboard() {
     abi: masterAgentABI,
     functionName: 'getDelegation',
     args: address ? [address, yieldAgentAddress] : undefined,
+    chainId: 11155111, // Sepolia testnet
+  });
+
+  // Read user's USDC balance
+  const { data: usdcBalance } = useReadContract({
+    address: usdcAddress,
+    abi: erc20Abi,
+    functionName: 'balanceOf',
+    args: address ? [address] : undefined,
+    chainId: 11155111, // Sepolia testnet
   });
 
   // Calculate stats
   const totalSchedules = Number(dcaScheduleCount || 0);
   const totalStrategies = Number(yieldStrategyCount || 0);
 
+  // Helper to calculate actual spent today considering daily reset (matches contract logic at MasterAgent.sol:113-115)
+  const getActualSpentToday = (delegation: any) => {
+    if (!delegation) return BigInt(0);
+    const now = Math.floor(Date.now() / 1000);
+    const lastResetTimestamp = Number(delegation.lastResetTimestamp);
+    // If 1 day (86400 seconds) has passed since last reset, spent amount is 0
+    if (now >= lastResetTimestamp + 86400) {
+      return BigInt(0);
+    }
+    return delegation.spentToday;
+  };
+
   const dcaDailyLimit = dcaDelegation?.dailyLimit !== undefined ? formatUnits(dcaDelegation.dailyLimit, 6) : '0';
-  const dcaSpentToday = dcaDelegation?.spentToday !== undefined ? formatUnits(dcaDelegation.spentToday, 6) : '0';
+  const dcaSpentToday = formatUnits(getActualSpentToday(dcaDelegation), 6);
   const dcaActive = dcaDelegation?.active ?? false;
 
   const yieldDailyLimit = yieldDelegation?.dailyLimit !== undefined ? formatUnits(yieldDelegation.dailyLimit, 6) : '0';
-  const yieldSpentToday = yieldDelegation?.spentToday !== undefined ? formatUnits(yieldDelegation.spentToday, 6) : '0';
+  const yieldSpentToday = formatUnits(getActualSpentToday(yieldDelegation), 6);
   const yieldActive = yieldDelegation?.active ?? false;
 
   const totalDailyLimit = parseFloat(dcaDailyLimit) + parseFloat(yieldDailyLimit);
   const totalSpentToday = parseFloat(dcaSpentToday) + parseFloat(yieldSpentToday);
   const remainingToday = totalDailyLimit - totalSpentToday;
+
+  const userBalance = usdcBalance !== undefined ? formatUnits(usdcBalance, 6) : '0';
 
   return (
     <div className="space-y-6">
@@ -74,6 +103,27 @@ export default function AnalyticsDashboard() {
         <p className="text-gray-300 text-base leading-relaxed">
           Monitor your autonomous agents, track spending limits, and view active strategies.
         </p>
+      </div>
+
+      {/* USDC Balance - Highlighted */}
+      <div className="bg-gradient-to-br from-emerald-500/20 to-teal-500/20 backdrop-blur-md border-2 border-emerald-500/40 rounded-2xl p-8 shadow-xl">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <div className="w-16 h-16 bg-gradient-to-br from-emerald-500 to-teal-500 rounded-2xl flex items-center justify-center shadow-lg">
+              <Wallet size={32} className="text-white" />
+            </div>
+            <div>
+              <p className="text-sm text-emerald-300 font-medium mb-1">Your USDC Balance</p>
+              <p className="text-5xl font-bold text-white">${parseFloat(userBalance).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+            </div>
+          </div>
+          <div className="text-right">
+            <p className="text-xs text-gray-400 mb-1">Contract Address</p>
+            <p className="text-xs text-emerald-400 font-mono">
+              {usdcAddress.slice(0, 6)}...{usdcAddress.slice(-4)}
+            </p>
+          </div>
+        </div>
       </div>
 
       {/* Key Metrics Grid */}

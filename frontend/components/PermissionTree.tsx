@@ -16,6 +16,7 @@ export default function PermissionTree() {
     abi: masterAgentABI,
     functionName: 'getDelegation',
     args: address && dcaAgentAddress ? [address, dcaAgentAddress] : undefined,
+    chainId: 11155111, // Sepolia testnet
   });
 
   const { data: yieldDelegation } = useReadContract({
@@ -23,6 +24,7 @@ export default function PermissionTree() {
     abi: masterAgentABI,
     functionName: 'getDelegation',
     args: address && yieldAgentAddress ? [address, yieldAgentAddress] : undefined,
+    chainId: 11155111, // Sepolia testnet
   });
 
   const AgentCard = ({
@@ -64,7 +66,7 @@ export default function PermissionTree() {
             <div className="flex justify-between items-center">
               <span className="text-gray-300">Remaining:</span>
               <span className={`font-mono font-bold text-lg bg-gradient-to-r ${gradient} bg-clip-text text-transparent`}>
-                {formatUnits(delegation[1] - delegation[2], 6)} USDC
+                {formatUnits(BigInt(delegation[1]) - BigInt(delegation[2]), 6)} USDC
               </span>
             </div>
           </div>

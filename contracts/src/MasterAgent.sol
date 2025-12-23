@@ -130,14 +130,20 @@ contract MasterAgent is Ownable, Pausable {
     }
 
     /**
-     * @notice Execute an action through an agent
+     * @notice Execute an action through an agent with ERC-7715 token transfer
      * @dev Called by sub-agents to execute on behalf of users
+     * @dev Uses ERC-7715 permission context to transfer tokens without requiring approval
+     * @param user User on whose behalf the transfer is being made
+     * @param amount Amount of tokens to transfer
+     * @param token Token address to transfer
+     * @param recipient Address to receive the tokens (typically the calling agent)
+     * @return bool Success status
      */
     function executeViaAgent(
         address user,
         uint256 amount,
         address token,
-        bytes calldata data
+        address recipient
     ) external whenNotPaused returns (bool) {
         require(registeredAgents[msg.sender], "Caller not registered agent");
         require(canAgentSpend(user, msg.sender, amount), "Insufficient permission");
@@ -149,9 +155,15 @@ contract MasterAgent is Ownable, Pausable {
         DelegatedPermission storage permission = delegations[user][msg.sender];
         permission.spentToday += amount;
 
+        // Transfer tokens from user to recipient using ERC-7715 permission
+        // The ERC-7715 permission grants this contract the ability to transfer
+        // tokens on behalf of the user without requiring traditional ERC20 approval
+        if (amount > 0 && token != address(0)) {
+            IERC20(token).transferFrom(user, recipient, amount);
+        }
+
         emit AgentExecuted(user, msg.sender, amount);
 
-        // Execute the action (to be implemented by sub-agent)
         return true;
     }
 

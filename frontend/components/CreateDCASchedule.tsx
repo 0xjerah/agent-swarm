@@ -1,28 +1,57 @@
 'use client';
 
 import { useState } from 'react';
-import { useWriteContract, useWaitForTransactionReceipt } from 'wagmi';
-import { parseUnits } from 'viem';
+import { useAccount, useWriteContract, useWaitForTransactionReceipt, useReadContract } from 'wagmi';
+import { parseUnits, formatUnits } from 'viem';
 import { dcaAgentABI } from '@/lib/abis/generated/dcaAgent';
-import { Loader2, CheckCircle, TrendingUp } from 'lucide-react';
+import { masterAgentABI } from '@/lib/abis/generated/masterAgent';
+import { Loader2, CheckCircle, TrendingUp, AlertCircle, Settings } from 'lucide-react';
 
 export default function CreateDCASchedule() {
+  const { address } = useAccount();
   const [amount, setAmount] = useState('');
   const [interval, setInterval] = useState('86400'); // 1 day in seconds
   const [poolFee, setPoolFee] = useState('3000'); // 0.3% default
   const [slippage, setSlippage] = useState('50'); // 0.5% default
+  const [autoExecute, setAutoExecute] = useState(false); // Future: automation toggle
 
-  const { data: hash, writeContract, isPending } = useWriteContract();
-  const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash });
+  const dcaAgentAddress = process.env.NEXT_PUBLIC_DCA_AGENT as `0x${string}`;
+  const usdcAddress = process.env.NEXT_PUBLIC_USDC_ADDRESS as `0x${string}`;
+  const wethAddress = process.env.NEXT_PUBLIC_WETH_ADDRESS as `0x${string}`;
+  const masterAgentAddress = process.env.NEXT_PUBLIC_MASTER_AGENT as `0x${string}`;
+
+  // Read delegation data from MasterAgent
+  const { data: delegation } = useReadContract({
+    address: masterAgentAddress,
+    abi: masterAgentABI,
+    functionName: 'getDelegation',
+    args: address ? [address, dcaAgentAddress] : undefined,
+    query: {
+      enabled: !!address,
+    },
+  });
+
+  // Create schedule transaction
+  const { data: createHash, writeContract: createSchedule, isPending: isCreating } = useWriteContract();
+  const { isLoading: isCreateConfirming, isSuccess: isCreateSuccess } = useWaitForTransactionReceipt({ hash: createHash });
+
 
   const handleCreateSchedule = () => {
-    if (!amount) return;
+    if (!amount) {
+      console.log('CreateDCASchedule: No amount specified');
+      return;
+    }
 
-    const dcaAgentAddress = process.env.NEXT_PUBLIC_DCA_AGENT as `0x${string}`;
-    const usdcAddress = process.env.NEXT_PUBLIC_USDC_ADDRESS as `0x${string}`;
-    const wethAddress = process.env.NEXT_PUBLIC_WETH_ADDRESS as `0x${string}`;
+    console.log('CreateDCASchedule: Creating schedule', {
+      amount,
+      interval,
+      poolFee,
+      slippage,
+      autoExecute,
+      canCreate
+    });
 
-    writeContract({
+    createSchedule({
       address: dcaAgentAddress,
       abi: dcaAgentABI,
       functionName: 'createDCASchedule',
@@ -34,8 +63,40 @@ export default function CreateDCASchedule() {
         parseInt(poolFee), // poolFee as uint24
         BigInt(slippage), // slippageBps
       ],
+      chainId: 11155111,
     });
   };
+
+  // Calculate remaining delegation allowance
+  const requiredAmount = amount ? parseUnits(amount, 6) : BigInt(0);
+
+  // Helper to calculate actual spent today considering daily reset (matches contract logic at MasterAgent.sol:113-115)
+  const getActualSpentToday = (delegation: any) => {
+    if (!delegation) return BigInt(0);
+    const now = Math.floor(Date.now() / 1000);
+    const lastResetTimestamp = Number(delegation.lastResetTimestamp);
+    // If 1 day (86400 seconds) has passed since last reset, spent amount is 0
+    if (now >= lastResetTimestamp + 86400) {
+      return BigInt(0);
+    }
+    return delegation.spentToday;
+  };
+
+  // Extract delegation data
+  const dailyLimit = delegation ? delegation.dailyLimit : BigInt(0);
+  const spentToday = getActualSpentToday(delegation);
+  const isActive = delegation ? delegation.active : false;
+  // Match contract logic: block.timestamp > permission.expiry
+  const isExpired = delegation ? BigInt(Math.floor(Date.now() / 1000)) > delegation.expiry : true;
+
+  // Calculate remaining allowance
+  const remainingAllowance = dailyLimit > spentToday ? dailyLimit - spentToday : BigInt(0);
+  const hasAllowance = remainingAllowance >= requiredAmount && isActive && !isExpired;
+
+  const canCreate = hasAllowance;
+
+  // Only show status if user has entered an amount
+  const shouldShowStatus = amount && parseFloat(amount) > 0;
 
   return (
     <div className="bg-white/5 backdrop-blur-md border border-white/10 rounded-2xl p-8 hover:bg-white/[0.07] transition-all duration-300">
@@ -52,6 +113,30 @@ export default function CreateDCASchedule() {
           Set up automated recurring purchases of ETH using your delegated USDC. Your DCA agent will execute trades at optimal times.
         </p>
       </div>
+
+      {/* Delegation Allowance Check - Only show when user enters amount */}
+      {address && shouldShowStatus && (
+        <div className="mb-6">
+          <div className={`flex items-center gap-3 p-3 rounded-lg border ${
+            hasAllowance
+              ? 'bg-green-500/10 border-green-500/30 text-green-300'
+              : 'bg-red-500/10 border-red-500/30 text-red-300'
+          }`}>
+            {hasAllowance ? (
+              <CheckCircle size={18} className="flex-shrink-0" />
+            ) : (
+              <AlertCircle size={18} className="flex-shrink-0" />
+            )}
+            <div className="flex-1 text-sm">
+              <span className="font-semibold">Remaining Delegation: </span>
+              {formatUnits(remainingAllowance, 6)} USDC
+              {!isActive && ' (inactive)'}
+              {isExpired && ' (expired)'}
+              {isActive && !isExpired && !hasAllowance && ' (insufficient)'}
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="space-y-6">
         <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-xl p-5 hover:bg-white/[0.07] transition-all duration-300">
@@ -83,13 +168,21 @@ export default function CreateDCASchedule() {
             onChange={(e) => setInterval(e.target.value)}
             className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-lg text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:bg-white/[0.15] transition-all duration-300"
           >
-            <option value="3600" className="bg-slate-800">Every Hour</option>
-            <option value="86400" className="bg-slate-800">Every Day</option>
-            <option value="604800" className="bg-slate-800">Every Week</option>
+            <optgroup label="⚡ High Frequency" className="bg-slate-800">
+              <option value="30" className="bg-slate-800">Every 30 seconds</option>
+              <option value="60" className="bg-slate-800">Every 1 minute</option>
+              <option value="300" className="bg-slate-800">Every 5 minutes</option>
+              <option value="600" className="bg-slate-800">Every 10 minutes</option>
+            </optgroup>
+            <optgroup label="⏰ Standard Frequency" className="bg-slate-800">
+              <option value="3600" className="bg-slate-800">Every Hour</option>
+              <option value="86400" className="bg-slate-800">Every Day</option>
+              <option value="604800" className="bg-slate-800">Every Week</option>
+            </optgroup>
           </select>
           <p className="text-xs text-gray-400 mt-2 flex items-center gap-1.5">
             <span className="w-1 h-1 bg-cyan-400 rounded-full"></span>
-            Automated purchases reduce timing risk
+            Higher frequency means more frequent purchases
           </p>
         </div>
 
@@ -132,12 +225,47 @@ export default function CreateDCASchedule() {
           </p>
         </div>
 
+        {/* Automation Toggle (Future Feature) */}
+        <div className="bg-gradient-to-r from-purple-500/10 to-pink-500/10 backdrop-blur-sm border border-purple-500/30 rounded-xl p-5">
+          <div className="flex items-start gap-3">
+            <Settings size={20} className="text-purple-400 mt-0.5 flex-shrink-0" />
+            <div className="flex-1">
+              <div className="flex items-center justify-between mb-2">
+                <label htmlFor="auto-execute-toggle" className="text-sm font-semibold text-white cursor-pointer">
+                  Auto-Execute
+                </label>
+                <label htmlFor="auto-execute-toggle" className="relative cursor-pointer inline-block">
+                  <input
+                    id="auto-execute-toggle"
+                    type="checkbox"
+                    checked={autoExecute}
+                    onChange={(e) => setAutoExecute(e.target.checked)}
+                    className="sr-only peer"
+                  />
+                  <div className="w-11 h-6 bg-gray-600 rounded-full peer-checked:bg-purple-600 transition-colors"></div>
+                  <div className="absolute left-1 top-1 bg-white w-4 h-4 rounded-full transition-transform peer-checked:translate-x-5 pointer-events-none"></div>
+                </label>
+              </div>
+              <p className="text-xs text-gray-400 leading-relaxed">
+                {autoExecute ? (
+                  <>
+                    <span className="text-purple-300 font-medium">✓ Automation enabled.</span> Run the keeper service (see <code className="bg-black/30 px-1 rounded">automation/README.md</code>) to execute schedules automatically without MetaMask popups.
+                  </>
+                ) : (
+                  <>Manual execution only. Enable to use keeper service for hands-free automation via ERC-7715 delegation.</>
+                )}
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* Create Schedule Button */}
         <button
           onClick={handleCreateSchedule}
-          disabled={isPending || isConfirming || !amount}
+          disabled={isCreating || isCreateConfirming || !amount || !canCreate}
           className="w-full bg-gradient-to-r from-blue-600 to-cyan-600 text-white py-4 px-6 rounded-xl font-bold text-lg hover:from-blue-700 hover:to-cyan-700 hover:shadow-2xl hover:shadow-cyan-500/50 transition-all duration-300 disabled:from-gray-600 disabled:to-gray-700 disabled:cursor-not-allowed disabled:shadow-none flex items-center justify-center gap-3 group"
         >
-          {isPending || isConfirming ? (
+          {isCreating || isCreateConfirming ? (
             <>
               <Loader2 size={22} className="animate-spin" />
               <span>Creating Schedule...</span>
@@ -150,17 +278,20 @@ export default function CreateDCASchedule() {
           )}
         </button>
 
-        {isSuccess && (
+
+        {/* Success Messages */}
+        {isCreateSuccess && (
           <div className="bg-green-500/10 backdrop-blur-sm border border-green-500/30 text-green-300 px-5 py-4 rounded-xl flex items-start gap-3 animate-in fade-in slide-in-from-bottom-2 duration-300">
             <CheckCircle size={22} className="flex-shrink-0 mt-0.5 text-green-400" />
             <div>
               <p className="font-bold text-green-200 mb-1">Schedule Created!</p>
               <p className="text-sm leading-relaxed">
-                Your DCA schedule is now active. The agent will automatically purchase ETH at your specified interval.
+                Your DCA schedule is now active. You can execute it manually or enable automation when available.
               </p>
             </div>
           </div>
         )}
+
       </div>
     </div>
   );

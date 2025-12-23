@@ -244,7 +244,10 @@ contract DCAAgentTest is Test {
     }
 
     function testCannotExecuteTooSoon() public {
-        // Setup
+        // Warp to realistic timestamp to avoid uint underflow issues
+        vm.warp(100000);
+
+        // Setup and execute first time
         vm.startPrank(user);
         uint256 scheduleId = dcaAgent.createDCASchedule(
             address(usdc),
@@ -259,12 +262,15 @@ contract DCAAgentTest is Test {
         usdc.approve(address(dcaAgent), type(uint256).max);
         vm.stopPrank();
 
-        // Try to execute immediately
+        // Execute first time (should succeed immediately after creation)
         vm.startPrank(executor);
+        dcaAgent.executeDCA(user, scheduleId);
+        vm.stopPrank();
 
+        // Try to execute again immediately (should fail - too soon)
+        vm.startPrank(executor);
         vm.expectRevert("Too soon to execute");
         dcaAgent.executeDCA(user, scheduleId);
-
         vm.stopPrank();
     }
 

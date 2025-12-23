@@ -191,7 +191,7 @@ contract MasterAgentTest is Test {
         vm.expectEmit(true, true, false, true);
         emit AgentExecuted(user, dcaAgent, amount);
 
-        masterAgent.executeViaAgent(user, amount, address(usdc), "");
+        masterAgent.executeViaAgent(user, amount, address(usdc), address(dcaAgent));
 
         // Check spent amount
         MasterAgent.DelegatedPermission memory delegation = masterAgent.getDelegation(user, dcaAgent);
@@ -211,7 +211,7 @@ contract MasterAgentTest is Test {
         vm.startPrank(dcaAgent);
 
         vm.expectRevert("Insufficient permission");
-        masterAgent.executeViaAgent(user, DAILY_LIMIT + 1, address(usdc), "");
+        masterAgent.executeViaAgent(user, DAILY_LIMIT + 1, address(usdc), address(dcaAgent));
 
         vm.stopPrank();
     }
@@ -225,7 +225,7 @@ contract MasterAgentTest is Test {
 
         // DCA agent spends entire daily limit
         vm.startPrank(dcaAgent);
-        masterAgent.executeViaAgent(user, DAILY_LIMIT, address(usdc), "");
+        masterAgent.executeViaAgent(user, DAILY_LIMIT, address(usdc), address(dcaAgent));
         vm.stopPrank();
 
         // Fast forward 24 hours
@@ -233,7 +233,7 @@ contract MasterAgentTest is Test {
 
         // Should be able to spend again
         vm.startPrank(dcaAgent);
-        masterAgent.executeViaAgent(user, 100 * 10**6, address(usdc), "");
+        masterAgent.executeViaAgent(user, 100 * 10**6, address(usdc), address(dcaAgent));
 
         MasterAgent.DelegatedPermission memory delegation = masterAgent.getDelegation(user, dcaAgent);
         assertEq(delegation.spentToday, 100 * 10**6);
@@ -255,7 +255,7 @@ contract MasterAgentTest is Test {
         vm.startPrank(dcaAgent);
 
         vm.expectRevert("Insufficient permission");
-        masterAgent.executeViaAgent(user, 100 * 10**6, address(usdc), "");
+        masterAgent.executeViaAgent(user, 100 * 10**6, address(usdc), address(dcaAgent));
 
         vm.stopPrank();
     }
@@ -275,7 +275,7 @@ contract MasterAgentTest is Test {
         vm.startPrank(dcaAgent);
 
         vm.expectRevert();
-        masterAgent.executeViaAgent(user, 100 * 10**6, address(usdc), "");
+        masterAgent.executeViaAgent(user, 100 * 10**6, address(usdc), address(dcaAgent));
 
         vm.stopPrank();
     }
@@ -318,7 +318,7 @@ contract MasterAgentTest is Test {
 
         // Spend half the limit
         vm.prank(dcaAgent);
-        masterAgent.executeViaAgent(user, DAILY_LIMIT / 2, address(usdc), "");
+        masterAgent.executeViaAgent(user, DAILY_LIMIT / 2, address(usdc), address(dcaAgent));
 
         // Check remaining permission
         assertTrue(masterAgent.canAgentSpend(user, dcaAgent, DAILY_LIMIT / 2));

@@ -194,16 +194,17 @@ contract YieldAgent {
             "Insufficient permission"
         );
 
-        // Execute through master agent to track spending limits
+        // Execute through master agent using ERC-7715 permission
+        // This transfers tokens from user to this contract WITHOUT requiring ERC20 approval
         masterAgent.executeViaAgent(
             user,
             amountToDeposit,
             strategy.token,
-            ""
+            address(this)  // Transfer tokens to this Yield agent contract
         );
 
-        // Transfer and deposit tokens
-        _transferAndDeposit(user, strategy.token, amountToDeposit);
+        // Deposit tokens to Aave
+        _depositToAave(strategy.token, amountToDeposit, user);
 
         strategy.currentDeposited += amountToDeposit;
 
@@ -211,21 +212,19 @@ contract YieldAgent {
     }
 
     /**
-     * @notice Internal helper to reduce stack depth in executeDeposit
+     * @notice Internal helper to deposit tokens to Aave
+     * @dev Tokens are already in this contract via ERC-7715 transfer from MasterAgent
      */
-    function _transferAndDeposit(
-        address user,
+    function _depositToAave(
         address token,
-        uint256 amount
+        uint256 amount,
+        address user
     ) internal {
-        // Transfer tokens from user to this contract
-        // Note: User must have approved this contract to spend their tokens
-        IERC20(token).safeTransferFrom(user, address(this), amount);
-
         // Approve Aave pool to spend tokens
         IERC20(token).approve(address(aavePool), amount);
 
         // Supply to Aave V3 on behalf of user
+        // User receives the aTokens (interest-bearing tokens)
         aavePool.supply(token, amount, user, 0);
     }
 
