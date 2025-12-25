@@ -1,0 +1,269 @@
+# ===== Raw Event Entities =====
+
+# MasterAgent Events
+type MasterAgent_PermissionDelegated {
+  id: ID!
+  user: String!
+  agent: String!
+  dailyLimit: BigInt!
+  expiry: BigInt!
+  timestamp: BigInt!
+  blockNumber: BigInt!
+}
+
+type MasterAgent_PermissionRevoked {
+  id: ID!
+  user: String!
+  agent: String!
+  timestamp: BigInt!
+  blockNumber: BigInt!
+}
+
+type MasterAgent_AgentRegistered {
+  id: ID!
+  agent: String!
+  name: String!
+  timestamp: BigInt!
+  blockNumber: BigInt!
+}
+
+type MasterAgent_TransferExecuted {
+  id: ID!
+  user: String!
+  agent: String!
+  token: String!
+  amount: BigInt!
+  recipient: String!
+  timestamp: BigInt!
+  blockNumber: BigInt!
+}
+
+# DCAAgent Events
+type DCAAgent_DCAScheduleCreated {
+  id: ID!
+  user: String!
+  scheduleId: BigInt!
+  amountPerPurchase: BigInt!
+  intervalSeconds: BigInt!
+  poolFee: BigInt!
+  timestamp: BigInt!
+  blockNumber: BigInt!
+}
+
+type DCAAgent_DCAExecuted {
+  id: ID!
+  user: String!
+  scheduleId: BigInt!
+  amountSpent: BigInt!
+  amountReceived: BigInt!
+  timestamp: BigInt!
+  blockNumber: BigInt!
+  txHash: String!
+}
+
+type DCAAgent_DCAScheduleCancelled {
+  id: ID!
+  user: String!
+  scheduleId: BigInt!
+  timestamp: BigInt!
+  blockNumber: BigInt!
+}
+
+# YieldAgent Events
+type YieldAgent_YieldStrategyCreated {
+  id: ID!
+  user: String!
+  strategyId: BigInt!
+  amount: BigInt!
+  timestamp: BigInt!
+  blockNumber: BigInt!
+}
+
+type YieldAgent_DepositExecuted {
+  id: ID!
+  user: String!
+  strategyId: BigInt!
+  amount: BigInt!
+  sharesReceived: BigInt!
+  timestamp: BigInt!
+  blockNumber: BigInt!
+}
+
+type YieldAgent_WithdrawalExecuted {
+  id: ID!
+  user: String!
+  strategyId: BigInt!
+  shares: BigInt!
+  amountReceived: BigInt!
+  timestamp: BigInt!
+  blockNumber: BigInt!
+}
+
+type YieldAgent_RewardsClaimed {
+  id: ID!
+  user: String!
+  strategyId: BigInt!
+  rewardAmount: BigInt!
+  timestamp: BigInt!
+  blockNumber: BigInt!
+}
+
+# ===== Aggregated Entities for Frontend =====
+
+# User entity - tracks all user activity
+type User {
+  id: ID!  # user address (lowercase)
+  address: String!
+
+  # Delegation stats
+  activeDelegations: BigInt!
+  totalDelegationsCreated: BigInt!
+
+  # DCA stats
+  activeDCASchedules: BigInt!
+  totalDCASchedules: BigInt!
+  totalDCAExecutions: BigInt!
+  totalUSDCSpent: BigInt!
+  totalWETHReceived: BigInt!
+
+  # Yield stats
+  activeYieldStrategies: BigInt!
+  totalYieldStrategies: BigInt!
+  totalYieldDeposited: BigInt!
+  totalYieldWithdrawn: BigInt!
+  totalRewardsClaimed: BigInt!
+
+  # Metadata
+  firstInteraction: BigInt!
+  lastInteraction: BigInt!
+}
+
+# Delegation entity - tracks active delegations
+type Delegation {
+  id: ID!  # user-agent
+  user: String!
+  agent: String!
+  agentName: String
+  dailyLimit: BigInt!
+  expiry: BigInt!
+  isActive: Boolean!
+
+  # Usage tracking
+  totalSpent: BigInt!
+  lastUsed: BigInt
+
+  # Metadata
+  createdAt: BigInt!
+  revokedAt: BigInt
+}
+
+# DCA Schedule entity - tracks DCA schedules
+type DCASchedule {
+  id: ID!  # user-scheduleId
+  user: String!
+  scheduleId: BigInt!
+
+  # Schedule config
+  amountPerPurchase: BigInt!
+  intervalSeconds: BigInt!
+  poolFee: BigInt!
+
+  # Status
+  isActive: Boolean!
+
+  # Execution stats
+  totalExecutions: BigInt!
+  totalUSDCSpent: BigInt!
+  totalWETHReceived: BigInt!
+  averagePrice: String  # Calculated field for display
+
+  # Metadata
+  createdAt: BigInt!
+  lastExecutedAt: BigInt
+  cancelledAt: BigInt
+}
+
+# DCA Execution entity - individual DCA swaps
+type DCAExecution {
+  id: ID!  # txHash-logIndex
+  user: String!
+  scheduleId: BigInt!
+
+  # Execution details
+  amountSpent: BigInt!
+  amountReceived: BigInt!
+  price: String  # USDC per WETH
+
+  # Metadata
+  timestamp: BigInt!
+  blockNumber: BigInt!
+  txHash: String!
+}
+
+# Yield Strategy entity - tracks yield positions
+type YieldStrategy {
+  id: ID!  # user-strategyId
+  user: String!
+  strategyId: BigInt!
+
+  # Position tracking
+  totalDeposited: BigInt!
+  totalWithdrawn: BigInt!
+  totalRewardsClaimed: BigInt!
+  currentShares: BigInt!
+
+  # Status
+  isActive: Boolean!
+  isPaused: Boolean!
+
+  # Metadata
+  createdAt: BigInt!
+  lastDepositAt: BigInt
+  lastWithdrawalAt: BigInt
+  lastRewardsClaimAt: BigInt
+}
+
+# Agent entity - tracks registered agents
+type Agent {
+  id: ID!  # agent address (lowercase)
+  address: String!
+  name: String!
+
+  # Usage stats
+  totalUsers: BigInt!
+  totalDelegations: BigInt!
+  activeDelegations: BigInt!
+
+  # Metadata
+  registeredAt: BigInt!
+}
+
+# Global stats entity
+type GlobalStats {
+  id: ID!  # singleton "global"
+
+  # User stats
+  totalUsers: BigInt!
+  activeUsers: BigInt!
+
+  # Delegation stats
+  totalDelegations: BigInt!
+  activeDelegations: BigInt!
+
+  # DCA stats
+  totalDCASchedules: BigInt!
+  activeDCASchedules: BigInt!
+  totalDCAExecutions: BigInt!
+  totalUSDCVolume: BigInt!
+  totalWETHVolume: BigInt!
+
+  # Yield stats
+  totalYieldStrategies: BigInt!
+  activeYieldStrategies: BigInt!
+  totalYieldDeposited: BigInt!
+  totalYieldWithdrawn: BigInt!
+  totalRewardsClaimed: BigInt!
+
+  # Agent stats
+  totalAgents: BigInt!
+}
