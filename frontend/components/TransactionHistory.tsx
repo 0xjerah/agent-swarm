@@ -2,7 +2,8 @@
 
 import { useState, useMemo } from 'react';
 import { useAccount } from 'wagmi';
-import { gql, useQuery as useApolloQuery } from '@apollo/client';
+import { gql } from '@apollo/client';
+import { useQuery as useApolloQuery } from '@apollo/client/react';
 import { formatUnits } from 'viem';
 import { History, ExternalLink, TrendingUp, Repeat, Shield, Loader2 } from 'lucide-react';
 
@@ -152,9 +153,10 @@ export default function TransactionHistory() {
     if (!data) return [];
 
     const allTxs: Transaction[] = [];
+    const typedData = data as any;
 
     // Process permission delegated events
-    data.permissionDelegated?.forEach((event: any) => {
+    typedData.permissionDelegated?.forEach((event: any) => {
       allTxs.push({
         hash: event.txHash,
         blockNumber: event.blockNumber.toString(),
@@ -170,7 +172,7 @@ export default function TransactionHistory() {
     });
 
     // Process permission revoked events
-    data.permissionRevoked?.forEach((event: any) => {
+    typedData.permissionRevoked?.forEach((event: any) => {
       allTxs.push({
         hash: event.txHash,
         blockNumber: event.blockNumber.toString(),
@@ -184,7 +186,7 @@ export default function TransactionHistory() {
     });
 
     // Process DCA schedule created events
-    data.dcaScheduleCreated?.forEach((event: any) => {
+    typedData.dcaScheduleCreated?.forEach((event: any) => {
       allTxs.push({
         hash: event.txHash,
         blockNumber: event.blockNumber.toString(),
@@ -200,7 +202,7 @@ export default function TransactionHistory() {
     });
 
     // Process DCA executed events
-    data.dcaExecuted?.forEach((event: any) => {
+    typedData.dcaExecuted?.forEach((event: any) => {
       allTxs.push({
         hash: event.txHash,
         blockNumber: event.blockNumber.toString(),
@@ -216,7 +218,7 @@ export default function TransactionHistory() {
     });
 
     // Process DCA cancelled events
-    data.dcaCancelled?.forEach((event: any) => {
+    typedData.dcaCancelled?.forEach((event: any) => {
       allTxs.push({
         hash: event.txHash,
         blockNumber: event.blockNumber.toString(),
@@ -230,7 +232,7 @@ export default function TransactionHistory() {
     });
 
     // Process yield strategy created events
-    data.yieldStrategyCreated?.forEach((event: any) => {
+    typedData.yieldStrategyCreated?.forEach((event: any) => {
       allTxs.push({
         hash: event.txHash,
         blockNumber: event.blockNumber.toString(),
@@ -245,7 +247,7 @@ export default function TransactionHistory() {
     });
 
     // Process yield deposit events
-    data.yieldDeposited?.forEach((event: any) => {
+    typedData.yieldDeposited?.forEach((event: any) => {
       allTxs.push({
         hash: event.txHash,
         blockNumber: event.blockNumber.toString(),
@@ -260,7 +262,7 @@ export default function TransactionHistory() {
     });
 
     // Process yield withdrawal events
-    data.yieldWithdrawn?.forEach((event: any) => {
+    typedData.yieldWithdrawn?.forEach((event: any) => {
       allTxs.push({
         hash: event.txHash,
         blockNumber: event.blockNumber.toString(),
