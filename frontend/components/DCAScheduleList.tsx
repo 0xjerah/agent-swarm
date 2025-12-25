@@ -2,7 +2,8 @@
 
 import { useEffect } from 'react';
 import { useAccount, useReadContract, useWriteContract, useWaitForTransactionReceipt } from 'wagmi';
-import { gql, useQuery as useApolloQuery } from '@apollo/client';
+import { gql } from '@apollo/client';
+import { useQuery as useApolloQuery } from '@apollo/client/react';
 import { formatUnits, decodeEventLog } from 'viem';
 import { dcaAgentABI } from '@/lib/abis/generated/dcaAgent';
 import { masterAgentABI } from '@/lib/abis/generated/masterAgent';
@@ -66,7 +67,7 @@ export default function DCAScheduleList() {
     chainId: 11155111,
   });
 
-  const schedules = data?.DCASchedule || [];
+  const schedules = (data as any)?.DCASchedule || [];
 
   // Parse delegation
   const parseDelegation = () => {
