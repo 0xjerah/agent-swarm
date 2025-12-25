@@ -2,11 +2,20 @@
 
 This guide will get you up and running with the complete AgentSwarm stack including Envio indexer, frontend, and automation keeper.
 
+## 🎉 Production Indexer Available!
+
+**The Envio indexer is already deployed and running in production:**
+- **GraphQL Endpoint**: `https://indexer.dev.hyperindex.xyz/678f00d/v1/graphql`
+- **Status**: ✅ Live and indexing from block 9908095
+- **Network**: Sepolia testnet (11155111)
+
+You can use the production endpoint directly or run your own local indexer for development.
+
 ## Prerequisites
 
 - Node.js >= 18.0.0
 - npm or pnpm
-- Envio API Token (get from [envio.dev/app/api-tokens](https://envio.dev/app/api-tokens))
+- Envio API Token (only needed for local development - get from [envio.dev/app/api-tokens](https://envio.dev/app/api-tokens))
 
 ## Step-by-Step Setup
 
@@ -159,21 +168,30 @@ You should now have **3 services** running:
 
 ## Environment Variables Summary
 
-### Indexer (`indexer/.env`)
+### Indexer (`indexer/.env`) - Local Development Only
 ```env
 ENVIO_API_TOKEN="your-token-here"
 ```
 
 ### Frontend (`frontend/.env`)
 ```env
-NEXT_PUBLIC_GRAPHQL_URL=http://localhost:8080/v1/graphql
+# Production (default - already configured)
+NEXT_PUBLIC_GRAPHQL_URL=https://indexer.dev.hyperindex.xyz/678f00d/v1/graphql
+
+# Or use local development:
+# NEXT_PUBLIC_GRAPHQL_URL=http://localhost:8080/v1/graphql
 ```
 
 ### Keeper (`automation/.env`)
 ```env
 KEEPER_PRIVATE_KEY=0x...
-ENVIO_GRAPHQL_URL=http://localhost:8080/v1/graphql
 DCA_AGENT_ADDRESS=0xA86e7b31fA6a77186F09F36C06b2E7c5D3132795
+
+# Production (default)
+ENVIO_GRAPHQL_URL=https://indexer.dev.hyperindex.xyz/678f00d/v1/graphql
+
+# Or use local development:
+# ENVIO_GRAPHQL_URL=http://localhost:8080/v1/graphql
 ```
 
 ## Next Steps
