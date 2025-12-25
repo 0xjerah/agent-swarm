@@ -16,12 +16,28 @@ The indexer provides a GraphQL API for querying:
 
 ## Setup
 
-1. Install dependencies:
+1. **Configure Envio API Token:**
+
+Create a `.env` file with your Envio API token:
+
+```bash
+cp .env.example .env
+# Edit .env and add your token
+```
+
+Your `.env` file should contain:
+```env
+ENVIO_API_TOKEN="your-api-token-here"
+```
+
+**Important:** Envio requires all environment variables to be prefixed with `ENVIO_`. Get your API token from [envio.dev/app/api-tokens](https://envio.dev/app/api-tokens).
+
+2. **Install dependencies:**
 ```bash
 npm install
 ```
 
-2. Generate code from schema:
+3. **Generate code from schema:**
 ```bash
 npm run codegen
 ```
@@ -33,6 +49,12 @@ pnpm dev
 ```
 
 Visit http://localhost:8080 to see the GraphQL Playground, local password is `testing`.
+
+The indexer will:
+- Connect to Sepolia testnet using HyperSync
+- Index all events from deployment block 9908095
+- Provide GraphQL API at `http://localhost:8080/v1/graphql`
+- Auto-update in real-time as new events are emitted
 
 ### Generate files from `config.yaml` or `schema.graphql`
 

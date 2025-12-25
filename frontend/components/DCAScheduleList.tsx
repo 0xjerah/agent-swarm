@@ -2,11 +2,35 @@
 
 import { useEffect } from 'react';
 import { useAccount, useReadContract, useWriteContract, useWaitForTransactionReceipt } from 'wagmi';
+import { gql, useQuery as useApolloQuery } from '@apollo/client';
 import { formatUnits, decodeEventLog } from 'viem';
 import { dcaAgentABI } from '@/lib/abis/generated/dcaAgent';
 import { masterAgentABI } from '@/lib/abis/generated/masterAgent';
 import { erc20Abi } from '@/lib/abis/erc20';
-import { Loader2, PlayCircle, XCircle, Clock, TrendingUp, AlertCircle } from 'lucide-react';
+import { Loader2, PlayCircle, XCircle, Clock, TrendingUp, AlertCircle, BarChart3 } from 'lucide-react';
+
+// GraphQL query to fetch user's DCA schedules with execution history
+const GET_USER_SCHEDULES = gql`
+  query GetUserSchedules($userAddress: String!) {
+    DCASchedule(
+      where: { user: { _eq: $userAddress } }
+      order_by: { createdAt: desc }
+    ) {
+      id
+      user
+      scheduleId
+      amountPerPurchase
+      intervalSeconds
+      totalExecutions
+      totalUSDCSpent
+      totalWETHReceived
+      averagePrice
+      active
+      createdAt
+      lastExecutionTime
+    }
+  }
+`;
 
 // Token configuration - matches CreateDCASchedule
 const TOKEN_INFO: Record<string, { symbol: string; decimals: number }> = {
@@ -26,16 +50,14 @@ export default function DCAScheduleList() {
   const dcaAgentAddress = process.env.NEXT_PUBLIC_DCA_AGENT as `0x${string}`;
   const masterAgentAddress = process.env.NEXT_PUBLIC_MASTER_AGENT as `0x${string}`;
 
-  // Get user's schedule count
-  const { data: scheduleCount, refetch: refetchCount } = useReadContract({
-    address: dcaAgentAddress,
-    abi: dcaAgentABI,
-    functionName: 'getUserScheduleCount',
-    args: address ? [address] : undefined,
-    chainId: 11155111,
+  // Fetch schedules from Envio GraphQL
+  const { data, loading, error, refetch } = useApolloQuery(GET_USER_SCHEDULES, {
+    variables: { userAddress: address?.toLowerCase() || '' },
+    skip: !address,
+    pollInterval: 5000, // Poll every 5 seconds for real-time updates
   });
 
-  // Check delegation status
+  // Check delegation status (still using RPC for now)
   const { data: delegation } = useReadContract({
     address: masterAgentAddress,
     abi: masterAgentABI,
@@ -44,9 +66,7 @@ export default function DCAScheduleList() {
     chainId: 11155111,
   });
 
-  const scheduleIds = scheduleCount
-    ? Array.from({ length: Number(scheduleCount) }, (_, i) => i)
-    : [];
+  const schedules = data?.DCASchedule || [];
 
   // Parse delegation
   const parseDelegation = () => {
@@ -62,17 +82,48 @@ export default function DCAScheduleList() {
 
   const delegationStatus = parseDelegation();
 
+  // Calculate aggregate stats
+  const totalExecutions = schedules.reduce((sum: number, s: any) => sum + Number(s.totalExecutions), 0);
+  const totalUSDCSpent = schedules.reduce((sum: number, s: any) => sum + Number(s.totalUSDCSpent), 0);
+  const totalWETHReceived = schedules.reduce((sum: number, s: any) => sum + Number(s.totalWETHReceived), 0);
+  const activeSchedulesCount = schedules.filter((s: any) => s.active).length;
+
   return (
     <div className="bg-white/5 backdrop-blur-md border border-white/10 rounded-2xl p-8">
       <div className="mb-6">
         <h3 className="text-2xl font-bold text-white mb-2">Your DCA Schedules</h3>
         <p className="text-gray-300 text-sm">
-          Manage and execute your active DCA schedules
+          Manage and execute your active DCA schedules - updates in real-time!
         </p>
       </div>
 
+      {/* Stats Summary */}
+      {schedules.length > 0 && (
+        <div className="mb-6 grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="bg-gradient-to-br from-blue-500/10 to-cyan-500/10 border border-blue-500/20 rounded-xl p-4">
+            <div className="flex items-center gap-2 mb-1">
+              <BarChart3 size={16} className="text-blue-400" />
+              <div className="text-xs text-gray-400">Total Executions</div>
+            </div>
+            <div className="text-2xl font-bold text-white">{totalExecutions}</div>
+          </div>
+          <div className="bg-gradient-to-br from-purple-500/10 to-pink-500/10 border border-purple-500/20 rounded-xl p-4">
+            <div className="text-xs text-gray-400 mb-1">Active Schedules</div>
+            <div className="text-2xl font-bold text-white">{activeSchedulesCount}</div>
+          </div>
+          <div className="bg-gradient-to-br from-green-500/10 to-emerald-500/10 border border-green-500/20 rounded-xl p-4">
+            <div className="text-xs text-gray-400 mb-1">Total USDC Spent</div>
+            <div className="text-2xl font-bold text-white">{(totalUSDCSpent / 1e6).toFixed(2)}</div>
+          </div>
+          <div className="bg-gradient-to-br from-orange-500/10 to-yellow-500/10 border border-orange-500/20 rounded-xl p-4">
+            <div className="text-xs text-gray-400 mb-1">Total WETH Received</div>
+            <div className="text-2xl font-bold text-white">{(totalWETHReceived / 1e18).toFixed(4)}</div>
+          </div>
+        </div>
+      )}
+
       {/* Delegation Status Warning */}
-      {!delegationStatus.isActive && scheduleIds.length > 0 && (
+      {!delegationStatus.isActive && schedules.length > 0 && (
         <div className="mb-6 bg-orange-500/10 border border-orange-500/30 rounded-xl p-4">
           <div className="flex items-start gap-3">
             <AlertCircle size={20} className="text-orange-400 flex-shrink-0 mt-0.5" />
@@ -100,7 +151,18 @@ export default function DCAScheduleList() {
         </div>
       )}
 
-      {scheduleIds.length === 0 ? (
+      {loading ? (
+        <div className="text-center py-12">
+          <Loader2 size={48} className="mx-auto mb-4 animate-spin text-purple-400" />
+          <p className="text-gray-400">Loading schedules from Envio...</p>
+        </div>
+      ) : error ? (
+        <div className="text-center py-12">
+          <AlertCircle size={48} className="mx-auto mb-4 text-red-400" />
+          <p className="text-red-400">Error loading schedules</p>
+          <p className="text-sm text-gray-500 mt-2">Make sure Envio indexer is running</p>
+        </div>
+      ) : schedules.length === 0 ? (
         <div className="text-center py-12 text-gray-400">
           <TrendingUp size={48} className="mx-auto mb-4 opacity-50" />
           <p>No DCA schedules created yet</p>
@@ -108,13 +170,13 @@ export default function DCAScheduleList() {
         </div>
       ) : (
         <div className="space-y-4">
-          {scheduleIds.map((scheduleId) => (
+          {schedules.map((schedule: any) => (
             <ScheduleCard
-              key={scheduleId}
-              scheduleId={scheduleId}
+              key={schedule.scheduleId.toString()}
+              scheduleData={schedule}
               userAddress={address!}
               dcaAgentAddress={dcaAgentAddress}
-              onExecute={() => refetchCount()}
+              onExecute={() => refetch()}
               delegationActive={delegationStatus.isActive}
             />
           ))}
@@ -125,13 +187,13 @@ export default function DCAScheduleList() {
 }
 
 function ScheduleCard({
-  scheduleId,
+  scheduleData,
   userAddress,
   dcaAgentAddress,
   onExecute,
   delegationActive,
 }: {
-  scheduleId: number;
+  scheduleData: any;
   userAddress: `0x${string}`;
   dcaAgentAddress: `0x${string}`;
   onExecute: () => void;
@@ -141,7 +203,9 @@ function ScheduleCard({
   const aUsdcAddress = '0x16dA4541aD1807f4443d92D26044C1147406EB80' as `0x${string}`; // Aave V3 Sepolia aUSDC
   const masterAgentAddress = process.env.NEXT_PUBLIC_MASTER_AGENT as `0x${string}`;
 
-  // Get schedule details
+  const scheduleId = Number(scheduleData.scheduleId);
+
+  // Get schedule details from contract (for active status and real-time data)
   const { data: schedule, refetch: refetchSchedule } = useReadContract({
     address: dcaAgentAddress,
     abi: dcaAgentABI,
@@ -362,6 +426,30 @@ function ScheduleCard({
               </div>
             </div>
           </div>
+
+          {/* Execution History from GraphQL */}
+          {scheduleData.totalExecutions > 0 && (
+            <div className="bg-gradient-to-r from-cyan-500/5 to-blue-500/5 border border-cyan-500/20 rounded-lg p-3">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-xs">
+                <div>
+                  <div className="text-gray-400 mb-0.5">Executions</div>
+                  <div className="text-cyan-300 font-bold">{scheduleData.totalExecutions}</div>
+                </div>
+                <div>
+                  <div className="text-gray-400 mb-0.5">Total Spent</div>
+                  <div className="text-cyan-300 font-bold">{(Number(scheduleData.totalUSDCSpent) / 1e6).toFixed(2)} USDC</div>
+                </div>
+                <div>
+                  <div className="text-gray-400 mb-0.5">Total Received</div>
+                  <div className="text-cyan-300 font-bold">{(Number(scheduleData.totalWETHReceived) / 1e18).toFixed(4)} WETH</div>
+                </div>
+                <div>
+                  <div className="text-gray-400 mb-0.5">Avg Price</div>
+                  <div className="text-cyan-300 font-bold">${Number(scheduleData.averagePrice).toFixed(2)}/WETH</div>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Execution Status */}
           {isActive && (

@@ -1,188 +1,282 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { useAccount, usePublicClient } from 'wagmi';
-import { formatUnits, decodeEventLog } from 'viem';
-import { masterAgentABI } from '@/lib/abis/generated/masterAgent';
-import { dcaAgentABI } from '@/lib/abis/generated/dcaAgent';
-import { yieldAgentABI } from '@/lib/abis/generated/yieldAgent';
+import { useState, useMemo } from 'react';
+import { useAccount } from 'wagmi';
+import { gql, useQuery as useApolloQuery } from '@apollo/client';
+import { formatUnits } from 'viem';
 import { History, ExternalLink, TrendingUp, Repeat, Shield, Loader2 } from 'lucide-react';
 
 interface Transaction {
   hash: string;
-  blockNumber: bigint;
+  blockNumber: string;
   timestamp: Date;
   type: 'permission' | 'dca' | 'yield' | 'execute';
   event: string;
   details: any;
 }
 
+// GraphQL query to fetch all recent transactions
+const GET_RECENT_TRANSACTIONS = gql`
+  query GetRecentTransactions($userAddress: String!) {
+    # Permission events
+    permissionDelegated: MasterAgent_PermissionDelegated(
+      where: { user: { _eq: $userAddress } }
+      order_by: { timestamp: desc }
+      limit: 50
+    ) {
+      id
+      user
+      agent
+      dailyLimit
+      expiry
+      timestamp
+      blockNumber
+      txHash
+    }
+
+    permissionRevoked: MasterAgent_PermissionRevoked(
+      where: { user: { _eq: $userAddress } }
+      order_by: { timestamp: desc }
+      limit: 50
+    ) {
+      id
+      user
+      agent
+      timestamp
+      blockNumber
+      txHash
+    }
+
+    # DCA events
+    dcaScheduleCreated: DCAAgent_DCAScheduleCreated(
+      where: { user: { _eq: $userAddress } }
+      order_by: { timestamp: desc }
+      limit: 50
+    ) {
+      id
+      user
+      scheduleId
+      amountPerPurchase
+      intervalSeconds
+      timestamp
+      blockNumber
+      txHash
+    }
+
+    dcaExecuted: DCAAgent_DCAExecuted(
+      where: { user: { _eq: $userAddress } }
+      order_by: { timestamp: desc }
+      limit: 50
+    ) {
+      id
+      user
+      scheduleId
+      amountSpent
+      amountReceived
+      timestamp
+      blockNumber
+      txHash
+    }
+
+    dcaCancelled: DCAAgent_DCAScheduleCancelled(
+      where: { user: { _eq: $userAddress } }
+      order_by: { timestamp: desc }
+      limit: 50
+    ) {
+      id
+      user
+      scheduleId
+      timestamp
+      blockNumber
+      txHash
+    }
+
+    # Yield events
+    yieldStrategyCreated: YieldAgent_YieldStrategyCreated(
+      where: { user: { _eq: $userAddress } }
+      order_by: { timestamp: desc }
+      limit: 50
+    ) {
+      id
+      user
+      strategyId
+      token
+      timestamp
+      blockNumber
+      txHash
+    }
+
+    yieldDeposited: YieldAgent_DepositExecuted(
+      where: { user: { _eq: $userAddress } }
+      order_by: { timestamp: desc }
+      limit: 50
+    ) {
+      id
+      user
+      strategyId
+      amount
+      timestamp
+      blockNumber
+      txHash
+    }
+
+    yieldWithdrawn: YieldAgent_WithdrawalExecuted(
+      where: { user: { _eq: $userAddress } }
+      order_by: { timestamp: desc }
+      limit: 50
+    ) {
+      id
+      user
+      strategyId
+      amount
+      timestamp
+      blockNumber
+      txHash
+    }
+  }
+`;
+
 export default function TransactionHistory() {
   const { address } = useAccount();
-  const publicClient = usePublicClient({ chainId: 11155111 }); // Sepolia testnet
-  const [transactions, setTransactions] = useState<Transaction[]>([]);
-  const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<'all' | 'permission' | 'dca' | 'yield'>('all');
 
-  const masterAgentAddress = process.env.NEXT_PUBLIC_MASTER_AGENT as `0x${string}`;
-  const dcaAgentAddress = process.env.NEXT_PUBLIC_DCA_AGENT as `0x${string}`;
-  const yieldAgentAddress = process.env.NEXT_PUBLIC_YIELD_AGENT as `0x${string}`;
+  // Query all transactions from Envio
+  const { data, loading, error } = useApolloQuery(GET_RECENT_TRANSACTIONS, {
+    variables: { userAddress: address?.toLowerCase() || '' },
+    skip: !address,
+    pollInterval: 5000, // Poll every 5 seconds for real-time updates
+  });
 
-  useEffect(() => {
-    if (!address || !publicClient) return;
+  // Combine and transform all events into unified transaction format
+  const transactions = useMemo(() => {
+    if (!data) return [];
 
-    const fetchTransactions = async () => {
-      setLoading(true);
-      try {
-        const currentBlock = await publicClient.getBlockNumber();
-        const fromBlock = currentBlock - BigInt(999); // Last 999 blocks (RPC limit is 1000)
+    const allTxs: Transaction[] = [];
 
-        // Fetch events from all contracts
-        const [permissionLogs, dcaLogs, yieldLogs] = await Promise.all([
-          // Master Agent events
-          publicClient.getLogs({
-            address: masterAgentAddress,
-            fromBlock,
-            toBlock: 'latest',
-            events: [
-              {
-                type: 'event',
-                name: 'PermissionDelegated',
-                inputs: [
-                  { type: 'address', indexed: true, name: 'user' },
-                  { type: 'address', indexed: true, name: 'agent' },
-                  { type: 'uint256', indexed: false, name: 'dailyLimit' },
-                  { type: 'uint256', indexed: false, name: 'expiry' },
-                ],
-              },
-            ],
-          }),
-          // DCA Agent events
-          publicClient.getLogs({
-            address: dcaAgentAddress,
-            fromBlock,
-            toBlock: 'latest',
-            events: [
-              {
-                type: 'event',
-                name: 'DCAScheduleCreated',
-                inputs: [
-                  { type: 'address', indexed: true, name: 'user' },
-                  { type: 'uint256', indexed: true, name: 'scheduleId' },
-                  { type: 'uint256', indexed: false, name: 'amountPerPurchase' },
-                  { type: 'uint256', indexed: false, name: 'intervalSeconds' },
-                  { type: 'uint24', indexed: false, name: 'poolFee' },
-                ],
-              },
-              {
-                type: 'event',
-                name: 'DCAExecuted',
-                inputs: [
-                  { type: 'address', indexed: true, name: 'user' },
-                  { type: 'uint256', indexed: true, name: 'scheduleId' },
-                  { type: 'uint256', indexed: false, name: 'amountSpent' },
-                  { type: 'uint256', indexed: false, name: 'amountReceived' },
-                ],
-              },
-            ],
-          }),
-          // Yield Agent events
-          publicClient.getLogs({
-            address: yieldAgentAddress,
-            fromBlock,
-            toBlock: 'latest',
-            events: [
-              {
-                type: 'event',
-                name: 'StrategyCreated',
-                inputs: [
-                  { type: 'address', indexed: true, name: 'user' },
-                  { type: 'uint256', indexed: true, name: 'strategyId' },
-                  { type: 'address', indexed: false, name: 'token' },
-                  { type: 'address', indexed: false, name: 'aToken' },
-                  { type: 'uint8', indexed: false, name: 'strategyType' },
-                  { type: 'uint256', indexed: false, name: 'targetAllocation' },
-                ],
-              },
-              {
-                type: 'event',
-                name: 'FundsDeposited',
-                inputs: [
-                  { type: 'address', indexed: true, name: 'user' },
-                  { type: 'uint256', indexed: true, name: 'strategyId' },
-                  { type: 'uint256', indexed: false, name: 'amount' },
-                ],
-              },
-            ],
-          }),
-        ]);
+    // Process permission delegated events
+    data.permissionDelegated?.forEach((event: any) => {
+      allTxs.push({
+        hash: event.txHash,
+        blockNumber: event.blockNumber.toString(),
+        timestamp: new Date(Number(event.timestamp) * 1000),
+        type: 'permission',
+        event: 'PermissionDelegated',
+        details: {
+          agent: event.agent,
+          dailyLimit: BigInt(event.dailyLimit),
+          expiry: BigInt(event.expiry),
+        },
+      });
+    });
 
-        // Parse all logs
-        const allTxs: Transaction[] = [];
+    // Process permission revoked events
+    data.permissionRevoked?.forEach((event: any) => {
+      allTxs.push({
+        hash: event.txHash,
+        blockNumber: event.blockNumber.toString(),
+        timestamp: new Date(Number(event.timestamp) * 1000),
+        type: 'permission',
+        event: 'PermissionRevoked',
+        details: {
+          agent: event.agent,
+        },
+      });
+    });
 
-        // Parse permission logs
-        for (const log of permissionLogs) {
-          if (log.topics[1]?.toLowerCase() === address.toLowerCase().replace('0x', '0x000000000000000000000000')) {
-            const block = await publicClient.getBlock({ blockNumber: log.blockNumber });
-            allTxs.push({
-              hash: log.transactionHash!,
-              blockNumber: log.blockNumber,
-              timestamp: new Date(Number(block.timestamp) * 1000),
-              type: 'permission',
-              event: 'PermissionDelegated',
-              details: {
-                agent: `0x${log.topics[2]?.slice(26)}`,
-                dailyLimit: log.data ? BigInt(log.data.slice(0, 66)) : BigInt(0),
-              },
-            });
-          }
-        }
+    // Process DCA schedule created events
+    data.dcaScheduleCreated?.forEach((event: any) => {
+      allTxs.push({
+        hash: event.txHash,
+        blockNumber: event.blockNumber.toString(),
+        timestamp: new Date(Number(event.timestamp) * 1000),
+        type: 'dca',
+        event: 'DCAScheduleCreated',
+        details: {
+          scheduleId: event.scheduleId,
+          amountPerPurchase: BigInt(event.amountPerPurchase),
+          intervalSeconds: BigInt(event.intervalSeconds),
+        },
+      });
+    });
 
-        // Parse DCA logs
-        for (const log of dcaLogs) {
-          if (log.topics[1]?.toLowerCase() === address.toLowerCase().replace('0x', '0x000000000000000000000000')) {
-            const block = await publicClient.getBlock({ blockNumber: log.blockNumber });
-            const eventName = log.topics[0];
+    // Process DCA executed events
+    data.dcaExecuted?.forEach((event: any) => {
+      allTxs.push({
+        hash: event.txHash,
+        blockNumber: event.blockNumber.toString(),
+        timestamp: new Date(Number(event.timestamp) * 1000),
+        type: 'dca',
+        event: 'DCAExecuted',
+        details: {
+          scheduleId: event.scheduleId,
+          amountSpent: BigInt(event.amountSpent),
+          amountReceived: BigInt(event.amountReceived),
+        },
+      });
+    });
 
-            allTxs.push({
-              hash: log.transactionHash!,
-              blockNumber: log.blockNumber,
-              timestamp: new Date(Number(block.timestamp) * 1000),
-              type: 'dca',
-              event: log.eventName || 'DCAEvent',
-              details: log,
-            });
-          }
-        }
+    // Process DCA cancelled events
+    data.dcaCancelled?.forEach((event: any) => {
+      allTxs.push({
+        hash: event.txHash,
+        blockNumber: event.blockNumber.toString(),
+        timestamp: new Date(Number(event.timestamp) * 1000),
+        type: 'dca',
+        event: 'DCAScheduleCancelled',
+        details: {
+          scheduleId: event.scheduleId,
+        },
+      });
+    });
 
-        // Parse Yield logs
-        for (const log of yieldLogs) {
-          if (log.topics[1]?.toLowerCase() === address.toLowerCase().replace('0x', '0x000000000000000000000000')) {
-            const block = await publicClient.getBlock({ blockNumber: log.blockNumber });
+    // Process yield strategy created events
+    data.yieldStrategyCreated?.forEach((event: any) => {
+      allTxs.push({
+        hash: event.txHash,
+        blockNumber: event.blockNumber.toString(),
+        timestamp: new Date(Number(event.timestamp) * 1000),
+        type: 'yield',
+        event: 'YieldStrategyCreated',
+        details: {
+          strategyId: event.strategyId,
+          token: event.token,
+        },
+      });
+    });
 
-            allTxs.push({
-              hash: log.transactionHash!,
-              blockNumber: log.blockNumber,
-              timestamp: new Date(Number(block.timestamp) * 1000),
-              type: 'yield',
-              event: log.eventName || 'YieldEvent',
-              details: log,
-            });
-          }
-        }
+    // Process yield deposit events
+    data.yieldDeposited?.forEach((event: any) => {
+      allTxs.push({
+        hash: event.txHash,
+        blockNumber: event.blockNumber.toString(),
+        timestamp: new Date(Number(event.timestamp) * 1000),
+        type: 'yield',
+        event: 'DepositExecuted',
+        details: {
+          strategyId: event.strategyId,
+          amount: BigInt(event.amount),
+        },
+      });
+    });
 
-        // Sort by timestamp descending
-        allTxs.sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
-        setTransactions(allTxs);
-      } catch (error) {
-        console.error('Error fetching transactions:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
+    // Process yield withdrawal events
+    data.yieldWithdrawn?.forEach((event: any) => {
+      allTxs.push({
+        hash: event.txHash,
+        blockNumber: event.blockNumber.toString(),
+        timestamp: new Date(Number(event.timestamp) * 1000),
+        type: 'yield',
+        event: 'WithdrawalExecuted',
+        details: {
+          strategyId: event.strategyId,
+          amount: BigInt(event.amount),
+        },
+      });
+    });
 
-    fetchTransactions();
-  }, [address, publicClient]);
+    // Sort by timestamp descending
+    return allTxs.sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
+  }, [data]);
 
   const filteredTxs = filter === 'all'
     ? transactions
@@ -211,6 +305,59 @@ export default function TransactionHistory() {
         return 'from-green-500/20 to-teal-500/20 border-green-400/30';
       default:
         return 'from-gray-500/20 to-gray-600/20 border-gray-400/30';
+    }
+  };
+
+  // Format transaction details for display
+  const formatDetails = (tx: Transaction) => {
+    const details = tx.details;
+
+    switch (tx.event) {
+      case 'PermissionDelegated':
+        return (
+          <>
+            <div>Daily Limit: {formatUnits(details.dailyLimit, 6)} USDC</div>
+            <div className="text-xs text-gray-400">Expires: {new Date(Number(details.expiry) * 1000).toLocaleDateString()}</div>
+          </>
+        );
+      case 'PermissionRevoked':
+        return <div>Agent: {details.agent?.slice(0, 10)}...</div>;
+      case 'DCAScheduleCreated':
+        return (
+          <>
+            <div>Schedule #{details.scheduleId?.toString()}</div>
+            <div>{formatUnits(details.amountPerPurchase, 6)} USDC per purchase</div>
+          </>
+        );
+      case 'DCAExecuted':
+        const price = Number(details.amountSpent) / 1e6 / (Number(details.amountReceived) / 1e18);
+        return (
+          <>
+            <div>Schedule #{details.scheduleId?.toString()}</div>
+            <div>{formatUnits(details.amountSpent, 6)} USDC → {formatUnits(details.amountReceived, 18)} WETH</div>
+            <div className="text-xs text-gray-400">Price: ${price.toFixed(2)} per WETH</div>
+          </>
+        );
+      case 'DCAScheduleCancelled':
+        return <div>Schedule #{details.scheduleId?.toString()} cancelled</div>;
+      case 'YieldStrategyCreated':
+        return <div>Strategy #{details.strategyId?.toString()} created</div>;
+      case 'DepositExecuted':
+        return (
+          <>
+            <div>Strategy #{details.strategyId?.toString()}</div>
+            <div>Deposited: {formatUnits(details.amount, 18)} tokens</div>
+          </>
+        );
+      case 'WithdrawalExecuted':
+        return (
+          <>
+            <div>Strategy #{details.strategyId?.toString()}</div>
+            <div>Withdrew: {formatUnits(details.amount, 18)} tokens</div>
+          </>
+        );
+      default:
+        return null;
     }
   };
 
@@ -279,10 +426,23 @@ export default function TransactionHistory() {
 
       {/* Transaction List */}
       <div className="bg-white/5 backdrop-blur-md border border-white/10 rounded-2xl p-6">
-        {loading ? (
+        {!address ? (
+          <div className="flex flex-col items-center justify-center py-20">
+            <History size={48} className="text-gray-600 mb-4" />
+            <p className="text-gray-400">Connect wallet to view transaction history</p>
+          </div>
+        ) : error ? (
+          <div className="flex flex-col items-center justify-center py-20">
+            <History size={48} className="text-red-400 mb-4" />
+            <p className="text-red-400">Error loading transactions</p>
+            <p className="text-sm text-gray-500 mt-2">
+              Make sure Envio indexer is running
+            </p>
+          </div>
+        ) : loading ? (
           <div className="flex flex-col items-center justify-center py-20">
             <Loader2 size={48} className="text-purple-400 animate-spin mb-4" />
-            <p className="text-gray-400">Loading transaction history...</p>
+            <p className="text-gray-400">Loading transaction history from Envio...</p>
           </div>
         ) : filteredTxs.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-20">
@@ -318,10 +478,8 @@ export default function TransactionHistory() {
                       </div>
 
                       <div className="text-sm text-gray-300 space-y-1">
-                        {tx.type === 'permission' && tx.details.dailyLimit && (
-                          <div>Daily Limit: {formatUnits(tx.details.dailyLimit, 6)} USDC</div>
-                        )}
-                        <div className="text-xs text-gray-400">
+                        {formatDetails(tx)}
+                        <div className="text-xs text-gray-400 mt-2">
                           {tx.timestamp.toLocaleString()}
                         </div>
                       </div>

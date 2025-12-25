@@ -118,7 +118,24 @@ for (const schedule of ready) {
 
 ## How to Use
 
-### Step 1: Start Envio Indexer
+### Step 1: Configure Envio API Token
+
+Create a `.env` file in the `indexer` directory:
+
+```bash
+cd indexer
+cp .env.example .env
+# Edit .env and add your Envio API token
+```
+
+The `.env` file should contain:
+```env
+ENVIO_API_TOKEN="your-api-token-here"
+```
+
+**Important:** All Envio environment variables must be prefixed with `ENVIO_` to work correctly.
+
+### Step 2: Start Envio Indexer
 
 ```bash
 cd indexer
@@ -130,7 +147,7 @@ npm run dev
 This starts:
 - GraphQL API at `http://localhost:8080/v1/graphql`
 - GraphiQL interface at `http://localhost:8080`
-- Real-time event indexing from Sepolia
+- Real-time event indexing from Sepolia using HyperSync
 
 ### Step 2: Run Envio-Powered Keeper
 
