@@ -56,6 +56,15 @@ const DCAScheduleCreatedTopic = '0x' + 'DCAScheduleCreated'.padEnd(64, '0'); // 
 const trackedUsers = new Set();
 const lastExecutionTimes = new Map(); // user:scheduleId -> timestamp
 
+// Manually add known users (fallback for schedules created before RPC scan range)
+// Add user addresses here if they're not being discovered automatically
+const KNOWN_USERS = [
+  '0xc760AB37E00082202e1659C256E01372f1739886', // Deployer wallet
+];
+
+// Initialize with known users
+KNOWN_USERS.forEach(user => trackedUsers.add(user));
+
 console.log('🤖 AgentSwarm Keeper Service Starting...');
 console.log('📋 Configuration:');
 console.log(`   Keeper Address: ${account.address}`);
@@ -205,7 +214,7 @@ async function executeDCASchedule(userAddress, scheduleId) {
 async function discoverNewUsers() {
   try {
     const currentBlock = await publicClient.getBlockNumber();
-    const fromBlock = currentBlock - BigInt(10000); // Last ~2 hours of blocks
+    const fromBlock = currentBlock - BigInt(49000); // Last ~10 hours of blocks (max RPC allows is 50k)
 
     const logs = await publicClient.getLogs({
       address: DCA_AGENT_ADDRESS,
