@@ -7,6 +7,25 @@ import { dcaAgentABI } from '@/lib/abis/generated/dcaAgent';
 import { masterAgentABI } from '@/lib/abis/generated/masterAgent';
 import { Loader2, CheckCircle, TrendingUp, AlertCircle, Settings } from 'lucide-react';
 
+// Token configuration
+const TOKENS = {
+  USDC: {
+    address: process.env.NEXT_PUBLIC_USDC_ADDRESS as `0x${string}`,
+    symbol: 'USDC',
+    decimals: 6,
+  },
+  WETH: {
+    address: process.env.NEXT_PUBLIC_WETH_ADDRESS as `0x${string}`,
+    symbol: 'WETH',
+    decimals: 18,
+  },
+  DAI: {
+    address: process.env.NEXT_PUBLIC_DAI_ADDRESS as `0x${string}`,
+    symbol: 'DAI',
+    decimals: 18,
+  },
+};
+
 export default function CreateDCASchedule() {
   const { address } = useAccount();
   const [amount, setAmount] = useState('');
@@ -14,11 +33,14 @@ export default function CreateDCASchedule() {
   const [poolFee, setPoolFee] = useState('3000'); // 0.3% default
   const [slippage, setSlippage] = useState('50'); // 0.5% default
   const [autoExecute, setAutoExecute] = useState(false); // Future: automation toggle
+  const [outputToken, setOutputToken] = useState<keyof typeof TOKENS>('WETH');
 
   const dcaAgentAddress = process.env.NEXT_PUBLIC_DCA_AGENT as `0x${string}`;
-  const usdcAddress = process.env.NEXT_PUBLIC_USDC_ADDRESS as `0x${string}`;
-  const wethAddress = process.env.NEXT_PUBLIC_WETH_ADDRESS as `0x${string}`;
   const masterAgentAddress = process.env.NEXT_PUBLIC_MASTER_AGENT as `0x${string}`;
+
+  // Always use USDC as input token to avoid multiple approvals
+  const selectedInputToken = TOKENS.USDC;
+  const selectedOutputToken = TOKENS[outputToken];
 
   // Read delegation data from MasterAgent
   const { data: delegation } = useReadContract({
@@ -56,9 +78,9 @@ export default function CreateDCASchedule() {
       abi: dcaAgentABI,
       functionName: 'createDCASchedule',
       args: [
-        usdcAddress,
-        wethAddress,
-        parseUnits(amount, 6), // USDC has 6 decimals
+        selectedInputToken.address,
+        selectedOutputToken.address,
+        parseUnits(amount, selectedInputToken.decimals),
         BigInt(interval),
         parseInt(poolFee), // poolFee as uint24
         BigInt(slippage), // slippageBps
@@ -68,7 +90,7 @@ export default function CreateDCASchedule() {
   };
 
   // Calculate remaining delegation allowance
-  const requiredAmount = amount ? parseUnits(amount, 6) : BigInt(0);
+  const requiredAmount = amount ? parseUnits(amount, selectedInputToken.decimals) : BigInt(0);
 
   // Helper to calculate actual spent today considering daily reset (matches contract logic at MasterAgent.sol:113-115)
   const getActualSpentToday = (delegation: any) => {
@@ -110,7 +132,7 @@ export default function CreateDCASchedule() {
           </h2>
         </div>
         <p className="text-gray-300 text-base leading-relaxed">
-          Set up automated recurring purchases of ETH using your delegated USDC. Your DCA agent will execute trades at optimal times.
+          Set up automated recurring USDC swaps using delegated permissions. Your DCA agent will execute trades at your chosen intervals.
         </p>
       </div>
 
@@ -129,7 +151,7 @@ export default function CreateDCASchedule() {
             )}
             <div className="flex-1 text-sm">
               <span className="font-semibold">Remaining Delegation: </span>
-              {formatUnits(remainingAllowance, 6)} USDC
+              {formatUnits(remainingAllowance, selectedInputToken.decimals)} {selectedInputToken.symbol}
               {!isActive && ' (inactive)'}
               {isExpired && ' (expired)'}
               {isActive && !isExpired && !hasAllowance && ' (insufficient)'}
@@ -139,9 +161,25 @@ export default function CreateDCASchedule() {
       )}
 
       <div className="space-y-6">
+        {/* Token Pair - Fixed to USDC → WETH */}
+        <div className="bg-gradient-to-r from-blue-500/10 to-cyan-500/10 backdrop-blur-sm border border-blue-500/30 rounded-xl p-5">
+          <label className="block text-sm font-semibold text-white mb-3">
+            Token Pair
+          </label>
+          <div className="flex items-center gap-3 text-lg font-bold text-white">
+            <span className="px-4 py-2 bg-white/10 rounded-lg border border-white/20">USDC</span>
+            <span className="text-cyan-400">→</span>
+            <span className="px-4 py-2 bg-white/10 rounded-lg border border-white/20">WETH</span>
+          </div>
+          <p className="text-xs text-gray-400 mt-3 flex items-center gap-1.5">
+            <span className="w-1 h-1 bg-cyan-400 rounded-full"></span>
+            Dollar-cost average from USDC into WETH
+          </p>
+        </div>
+
         <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-xl p-5 hover:bg-white/[0.07] transition-all duration-300">
           <label className="block text-sm font-semibold text-white mb-3">
-            Amount Per Purchase (USDC)
+            Amount Per Purchase ({selectedInputToken.symbol})
           </label>
           <div className="relative">
             <input
@@ -151,11 +189,11 @@ export default function CreateDCASchedule() {
               placeholder="10"
               className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:bg-white/[0.15] transition-all duration-300"
             />
-            <span className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 font-medium">USDC</span>
+            <span className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 font-medium">{selectedInputToken.symbol}</span>
           </div>
           <p className="text-xs text-gray-400 mt-2 flex items-center gap-1.5">
             <span className="w-1 h-1 bg-cyan-400 rounded-full"></span>
-            This amount will be swapped for ETH at each interval
+            This amount of {selectedInputToken.symbol} will be swapped for {selectedOutputToken.symbol} at each interval
           </p>
         </div>
 

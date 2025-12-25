@@ -8,6 +8,19 @@ import { masterAgentABI } from '@/lib/abis/generated/masterAgent';
 import { erc20Abi } from '@/lib/abis/erc20';
 import { Loader2, PlayCircle, XCircle, Clock, TrendingUp, AlertCircle } from 'lucide-react';
 
+// Token configuration - matches CreateDCASchedule
+const TOKEN_INFO: Record<string, { symbol: string; decimals: number }> = {
+  '0x94a9D9AC8a22534E3FaCa9F4e7F2E2cf85d5E4C8': { symbol: 'USDC', decimals: 6 },  // USDC
+  '0xC558DBdd856501FCd9aaF1E62eae57A9F0629a3c': { symbol: 'WETH', decimals: 18 }, // WETH
+  '0xFF34B3d4Aee8ddCd6F9AFFFB6Fe49bD371b8a357': { symbol: 'DAI', decimals: 18 },  // DAI
+};
+
+const getTokenInfo = (address: string) => {
+  const lowerAddress = address.toLowerCase();
+  const found = Object.entries(TOKEN_INFO).find(([addr]) => addr.toLowerCase() === lowerAddress);
+  return found ? found[1] : { symbol: 'TOKEN', decimals: 18 };
+};
+
 export default function DCAScheduleList() {
   const { address } = useAccount();
   const dcaAgentAddress = process.env.NEXT_PUBLIC_DCA_AGENT as `0x${string}`;
@@ -254,6 +267,10 @@ function ScheduleCard({
     active: isActive,
   } = schedule as any;
 
+  // Get token info
+  const inputTokenInfo = getTokenInfo(inputToken);
+  const outputTokenInfo = getTokenInfo(outputToken);
+
   // Format interval
   const formatInterval = (seconds: bigint) => {
     const s = Number(seconds);
@@ -321,9 +338,9 @@ function ScheduleCard({
           {/* Schedule Details */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <div>
-              <div className="text-xs text-gray-400 mb-1">Amount</div>
+              <div className="text-xs text-gray-400 mb-1">Swap</div>
               <div className="text-sm font-semibold text-white">
-                {formatUnits(amountPerPurchase, 6)} USDC
+                {formatUnits(amountPerPurchase, inputTokenInfo.decimals)} {inputTokenInfo.symbol} → {outputTokenInfo.symbol}
               </div>
             </div>
             <div>
@@ -409,9 +426,9 @@ function ScheduleCard({
             <>
               <button
                 onClick={handleExecute}
-                disabled={!delegationActive || !hasEnoughBalance || !hasEnoughAllowance || isExecuting || isExecuteConfirming}
+                disabled={!isReady || !delegationActive || !hasEnoughBalance || !hasEnoughAllowance || isExecuting || isExecuteConfirming}
                 className="px-4 py-2 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-lg text-sm font-medium hover:from-green-700 hover:to-emerald-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
-                title={!delegationActive ? 'Delegation required to execute' : !hasEnoughBalance ? 'Insufficient USDC balance' : !hasEnoughAllowance ? 'Insufficient USDC approval' : ''}
+                title={!isReady ? 'Not ready - check execution timer above' : !delegationActive ? 'Delegation required to execute' : !hasEnoughBalance ? 'Insufficient USDC balance' : !hasEnoughAllowance ? 'Insufficient USDC approval' : ''}
               >
                 {isExecuting || isExecuteConfirming ? (
                   <>
@@ -456,10 +473,10 @@ function ScheduleCard({
               <p className="font-semibold text-green-200 mb-1">Schedule executed successfully!</p>
               {executionResults && (
                 <div className="text-xs text-green-300/80 space-y-0.5">
-                  <p>• Spent: {formatUnits(executionResults.amountSpent, 6)} USDC</p>
-                  <p>• Received: {formatUnits(executionResults.amountReceived, 18)} WETH</p>
+                  <p>• Spent: {formatUnits(executionResults.amountSpent, inputTokenInfo.decimals)} {inputTokenInfo.symbol}</p>
+                  <p>• Received: {formatUnits(executionResults.amountReceived, outputTokenInfo.decimals)} {outputTokenInfo.symbol}</p>
                   <p className="text-green-400 mt-1">
-                    Price: ${(Number(formatUnits(executionResults.amountSpent, 6)) / Number(formatUnits(executionResults.amountReceived, 18))).toFixed(2)} per ETH
+                    Price: {(Number(formatUnits(executionResults.amountSpent, inputTokenInfo.decimals)) / Number(formatUnits(executionResults.amountReceived, outputTokenInfo.decimals))).toFixed(6)} {inputTokenInfo.symbol} per {outputTokenInfo.symbol}
                   </p>
                 </div>
               )}
