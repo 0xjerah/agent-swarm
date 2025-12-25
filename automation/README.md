@@ -106,27 +106,61 @@ KEEPER_PRIVATE_KEY=0xYOUR_KEEPER_PRIVATE_KEY_HERE
 
 ### 5. Run the Keeper
 
-**Development (with auto-restart):**
+The keeper service uses **Envio's GraphQL indexer** for efficient schedule discovery.
+
+**✨ Benefits:**
+- 🚀 Instant schedule discovery (no block limits)
+- ⚡ Single GraphQL query vs multiple RPC calls
+- 📈 Scales to thousands of users/schedules
+- 🎯 No manual user tracking needed
+
+**Prerequisites:**
+1. Start the Envio indexer first:
+   ```bash
+   cd ../indexer
+   pnpm dev
+   ```
+
+2. Configure Envio endpoint in `.env`:
+   ```env
+   ENVIO_GRAPHQL_URL=http://localhost:8080/v1/graphql
+   ```
+
+**Quick Test (stops when terminal closes):**
+```bash
+node keeper-envio.js
+# or
+npm start
+```
+
+**Development (with auto-restart on file changes):**
 ```bash
 npm run dev
 ```
 
-**Production:**
-```bash
-npm start
-```
+**Production - Run Continuously (Recommended):**
 
-**Run in background (Linux/Mac):**
-```bash
-nohup npm start > keeper.log 2>&1 &
-```
-
-**Run in background (PM2):**
+Using **PM2** (auto-restart on crash, survives reboots):
 ```bash
 npm install -g pm2
-pm2 start keeper.js --name agentswarm-keeper
-pm2 save
-pm2 startup
+pm2 start keeper-envio.js --name agentswarm-keeper
+pm2 save              # Save process list
+pm2 startup           # Enable auto-start on server reboot
+```
+
+**PM2 Management:**
+```bash
+pm2 logs agentswarm-keeper    # View logs
+pm2 status                     # Check status
+pm2 restart agentswarm-keeper  # Restart
+pm2 stop agentswarm-keeper     # Stop
+pm2 delete agentswarm-keeper   # Remove
+```
+
+**Alternative: Using nohup (simple background):**
+```bash
+nohup npm start > keeper.log 2>&1 &
+tail -f keeper.log  # View logs
 ```
 
 ## How to Use

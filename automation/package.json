@@ -1,12 +1,12 @@
 {
   "name": "agentswarm-keeper",
   "version": "1.0.0",
-  "description": "Automated keeper service for DCA schedule execution",
-  "main": "keeper.js",
+  "description": "Automated keeper service for DCA schedule execution using Envio indexer",
+  "main": "keeper-envio.js",
   "type": "module",
   "scripts": {
-    "start": "node keeper.js",
-    "dev": "node --watch keeper.js"
+    "start": "node keeper-envio.js",
+    "dev": "node --watch keeper-envio.js"
   },
   "dependencies": {
     "viem": "^2.21.54",

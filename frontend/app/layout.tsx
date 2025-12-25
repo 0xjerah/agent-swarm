@@ -4,6 +4,8 @@ import './globals.css';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { WagmiProvider } from 'wagmi';
 import { config } from '@/lib/wagmi';
+import { ApolloProvider } from '@apollo/client';
+import { apolloClient } from '@/lib/apollo-client';
 import { useState } from 'react';
 
 export default function RootLayout({
@@ -18,7 +20,9 @@ export default function RootLayout({
       <body>
         <WagmiProvider config={config}>
           <QueryClientProvider client={queryClient}>
-            {children}
+            <ApolloProvider client={apolloClient}>
+              {children}
+            </ApolloProvider>
           </QueryClientProvider>
         </WagmiProvider>
       </body>
