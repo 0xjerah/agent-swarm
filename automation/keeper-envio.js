@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { createWalletClient, createPublicClient, http, formatUnits, parseAbi } from 'viem';
+import { createWalletClient, createPublicClient, http, formatUnits } from 'viem';
 import { sepolia } from 'viem/chains';
 import { privateKeyToAccount } from 'viem/accounts';
 import dotenv from 'dotenv';
@@ -18,6 +18,7 @@ const RPC_URL = process.env.RPC_URL || 'https://ethereum-sepolia-rpc.publicnode.
 const DCA_AGENT_ADDRESS = process.env.DCA_AGENT_ADDRESS;
 const CHECK_INTERVAL = parseInt(process.env.CHECK_INTERVAL || '60') * 1000; // Convert to ms
 const MAX_GAS_PRICE = BigInt(process.env.MAX_GAS_PRICE || '50000000000'); // 50 gwei default
+const ENVIO_GRAPHQL_URL = process.env.ENVIO_GRAPHQL_URL || 'http://localhost:8080/v1/graphql';
 
 // Load ABIs
 const dcaAgentABI = JSON.parse(readFileSync(join(__dirname, '../frontend/lib/abis/generated/dcaAgent.ts'), 'utf-8')
@@ -26,12 +27,12 @@ const dcaAgentABI = JSON.parse(readFileSync(join(__dirname, '../frontend/lib/abi
 
 // Validate configuration
 if (!KEEPER_PRIVATE_KEY) {
-  console.error('❌ KEEPER_PRIVATE_KEY not set in .env file');
+  console.error(' KEEPER_PRIVATE_KEY not set in .env file');
   process.exit(1);
 }
 
 if (!DCA_AGENT_ADDRESS) {
-  console.error('❌ DCA_AGENT_ADDRESS not set in .env file');
+  console.error(' DCA_AGENT_ADDRESS not set in .env file');
   process.exit(1);
 }
 
@@ -49,27 +50,12 @@ const walletClient = createWalletClient({
   transport: http(RPC_URL),
 });
 
-// Event tracking
-const DCAScheduleCreatedTopic = '0x' + 'DCAScheduleCreated'.padEnd(64, '0'); // Simplified - proper event hash needed
-
-// State tracking
-const trackedUsers = new Set();
-const lastExecutionTimes = new Map(); // user:scheduleId -> timestamp
-
-// Manually add known users (fallback for schedules created before RPC scan range)
-// Add user addresses here if they're not being discovered automatically
-const KNOWN_USERS = [
-  '0xc760AB37E00082202e1659C256E01372f1739886', // Deployer wallet
-];
-
-// Initialize with known users
-KNOWN_USERS.forEach(user => trackedUsers.add(user));
-
-console.log('🤖 AgentSwarm Keeper Service Starting...');
-console.log('📋 Configuration:');
+console.log(' AgentSwarm Keeper Service (Envio-Powered) Starting...');
+console.log(' Configuration:');
 console.log(`   Keeper Address: ${account.address}`);
 console.log(`   DCA Agent: ${DCA_AGENT_ADDRESS}`);
 console.log(`   RPC URL: ${RPC_URL}`);
+console.log(`   Envio GraphQL: ${ENVIO_GRAPHQL_URL}`);
 console.log(`   Check Interval: ${CHECK_INTERVAL / 1000}s`);
 console.log(`   Max Gas Price: ${formatUnits(MAX_GAS_PRICE, 9)} gwei`);
 console.log('');
@@ -89,47 +75,70 @@ async function checkKeeperBalance() {
   return balance;
 }
 
-// Get all schedules for a user
-async function getUserSchedules(userAddress) {
-  try {
-    const scheduleCount = await publicClient.readContract({
-      address: DCA_AGENT_ADDRESS,
-      abi: dcaAgentABI,
-      functionName: 'getUserScheduleCount',
-      args: [userAddress],
-    });
+// Query Envio for ready-to-execute schedules
+async function getReadySchedules() {
+  const currentTime = Math.floor(Date.now() / 1000);
 
-    const schedules = [];
-    for (let i = 0; i < Number(scheduleCount); i++) {
-      const schedule = await publicClient.readContract({
-        address: DCA_AGENT_ADDRESS,
-        abi: dcaAgentABI,
-        functionName: 'getSchedule',
-        args: [userAddress, BigInt(i)],
-      });
-
-      if (schedule.active) {
-        schedules.push({ id: i, ...schedule });
+  const query = `
+    query GetReadySchedules {
+      DCASchedule(
+        where: {
+          active: { _eq: true }
+        }
+      ) {
+        id
+        user
+        scheduleId
+        amountPerPurchase
+        intervalSeconds
+        lastExecutionTime
+        totalExecutions
       }
     }
+  `;
 
-    return schedules;
+  try {
+    const response = await fetch(ENVIO_GRAPHQL_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ query }),
+    });
+
+    if (!response.ok) {
+      throw new Error(`GraphQL request failed: ${response.status} ${response.statusText}`);
+    }
+
+    const result = await response.json();
+
+    if (result.errors) {
+      console.error('GraphQL errors:', result.errors);
+      return [];
+    }
+
+    // Filter schedules that are ready to execute
+    const allSchedules = result.data?.DCASchedule || [];
+    const readySchedules = allSchedules.filter(schedule => {
+      const lastExecution = Number(schedule.lastExecutionTime);
+      const interval = Number(schedule.intervalSeconds);
+      const nextExecution = lastExecution + interval;
+      return currentTime >= nextExecution;
+    });
+
+    return readySchedules;
   } catch (error) {
-    console.error(`   Error fetching schedules for ${userAddress}:`, error.message);
+    console.error('Error fetching schedules from Envio:', error.message);
     return [];
   }
 }
 
-// Check if schedule is ready to execute
-function isScheduleReady(schedule) {
-  const now = Math.floor(Date.now() / 1000);
-  const nextExecution = Number(schedule.lastExecutionTime) + Number(schedule.intervalSeconds);
-  return now >= nextExecution;
-}
-
 // Execute a DCA schedule
-async function executeDCASchedule(userAddress, scheduleId) {
+async function executeDCASchedule(schedule) {
   try {
+    const userAddress = schedule.user;
+    const scheduleId = BigInt(schedule.scheduleId);
+
     console.log(`   ⚙️  Executing schedule #${scheduleId} for ${userAddress}...`);
 
     // Check gas price
@@ -145,11 +154,11 @@ async function executeDCASchedule(userAddress, scheduleId) {
         address: DCA_AGENT_ADDRESS,
         abi: dcaAgentABI,
         functionName: 'executeDCA',
-        args: [userAddress, BigInt(scheduleId)],
+        args: [userAddress, scheduleId],
         account,
       });
     } catch (simError) {
-      console.error(`   ❌ Simulation failed: ${simError.message}`);
+      console.error(`    Simulation failed: ${simError.message}`);
       return false;
     }
 
@@ -158,7 +167,7 @@ async function executeDCASchedule(userAddress, scheduleId) {
       address: DCA_AGENT_ADDRESS,
       abi: dcaAgentABI,
       functionName: 'executeDCA',
-      args: [userAddress, BigInt(scheduleId)],
+      args: [userAddress, scheduleId],
       gas: BigInt(500000),
     });
 
@@ -197,8 +206,6 @@ async function executeDCASchedule(userAddress, scheduleId) {
         console.log(`   ✅ Execution successful!`);
       }
 
-      // Update last execution time
-      lastExecutionTimes.set(`${userAddress}:${scheduleId}`, Math.floor(Date.now() / 1000));
       return true;
     } else {
       console.error(`   ❌ Transaction failed`);
@@ -210,42 +217,6 @@ async function executeDCASchedule(userAddress, scheduleId) {
   }
 }
 
-// Discover new users by scanning DCAScheduleCreated events
-async function discoverNewUsers() {
-  try {
-    const currentBlock = await publicClient.getBlockNumber();
-    const fromBlock = currentBlock - BigInt(49000); // Last ~10 hours of blocks (max RPC allows is 50k)
-
-    const logs = await publicClient.getLogs({
-      address: DCA_AGENT_ADDRESS,
-      fromBlock,
-      toBlock: currentBlock,
-    });
-
-    for (const log of logs) {
-      try {
-        const decoded = publicClient.decodeEventLog({
-          abi: dcaAgentABI,
-          data: log.data,
-          topics: log.topics,
-        });
-
-        if (decoded.eventName === 'DCAScheduleCreated') {
-          const userAddress = decoded.args.user;
-          if (!trackedUsers.has(userAddress)) {
-            trackedUsers.add(userAddress);
-            console.log(`👤 Discovered new user: ${userAddress}`);
-          }
-        }
-      } catch {
-        // Skip logs that don't decode
-      }
-    }
-  } catch (error) {
-    console.error('Error discovering users:', error.message);
-  }
-}
-
 // Main monitoring loop
 async function monitorAndExecute() {
   console.log(`\n⏰ ${new Date().toLocaleString()} - Checking schedules...`);
@@ -254,35 +225,26 @@ async function monitorAndExecute() {
     // Check keeper balance periodically
     await checkKeeperBalance();
 
-    // Discover new users
-    await discoverNewUsers();
+    // Get ready schedules from Envio
+    const readySchedules = await getReadySchedules();
 
-    if (trackedUsers.size === 0) {
-      console.log('   No users to monitor yet. Waiting for DCA schedules...');
+    if (readySchedules.length === 0) {
+      console.log('   No schedules ready for execution.');
       return;
     }
 
-    console.log(`   Monitoring ${trackedUsers.size} user(s)`);
+    console.log(`   Found ${readySchedules.length} schedule(s) ready for execution`);
 
-    let totalChecked = 0;
     let totalExecuted = 0;
 
-    // Check each user's schedules
-    for (const userAddress of trackedUsers) {
-      const schedules = await getUserSchedules(userAddress);
-
-      for (const schedule of schedules) {
-        totalChecked++;
-
-        if (isScheduleReady(schedule)) {
-          console.log(`   🔔 Schedule #${schedule.id} for ${userAddress} is ready!`);
-          const success = await executeDCASchedule(userAddress, schedule.id);
-          if (success) totalExecuted++;
-        }
-      }
+    // Execute each ready schedule
+    for (const schedule of readySchedules) {
+      console.log(`   🔔 Schedule #${schedule.scheduleId} for ${schedule.user} is ready!`);
+      const success = await executeDCASchedule(schedule);
+      if (success) totalExecuted++;
     }
 
-    console.log(`   📊 Checked ${totalChecked} schedule(s), executed ${totalExecuted}`);
+    console.log(`   📊 Executed ${totalExecuted}/${readySchedules.length} schedule(s)`);
   } catch (error) {
     console.error('❌ Error in monitoring loop:', error);
   }
@@ -313,10 +275,12 @@ async function start() {
     // Initial balance check
     await checkKeeperBalance();
 
-    // Initial discovery
-    await discoverNewUsers();
+    // Test Envio connection
+    console.log('\n🔍 Testing Envio connection...');
+    const testSchedules = await getReadySchedules();
+    console.log(`✅ Envio connected! Found ${testSchedules.length} active schedule(s)\n`);
 
-    console.log('\n✅ Keeper service started successfully!\n');
+    console.log('✅ Keeper service started successfully!\n');
     console.log('Press Ctrl+C to stop\n');
 
     // Initial check

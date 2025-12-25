@@ -1,0 +1,42 @@
+# yaml-language-server: $schema=./node_modules/envio/evm.schema.json
+name: agentswarm-indexer
+networks:
+- id: 11155111  # Sepolia testnet
+  start_block: 9908095  # MasterAgent deployment block
+  contracts:
+  # MasterAgent - Handles delegations and permissions
+  - name: MasterAgent
+    address:
+    - 0x1fd734c9c78e9c34238c2b5f4E936368727326f6
+    handler: src/EventHandlers.ts
+    events:
+    - event: PermissionDelegated(address indexed user, address indexed agent, uint256 dailyLimit, uint256 expiry)
+    - event: PermissionRevoked(address indexed user, address indexed agent)
+    - event: AgentRegistered(address indexed agent, string name)
+    - event: TransferExecuted(address indexed user, address indexed agent, address indexed token, uint256 amount, address recipient)
+
+  # DCAAgent - Handles DCA schedules
+  - name: DCAAgent
+    address:
+    - 0xA86e7b31fA6a77186F09F36C06b2E7c5D3132795
+    handler: src/EventHandlers.ts
+    events:
+    - event: DCAScheduleCreated(address indexed user, uint256 indexed scheduleId, uint256 amountPerPurchase, uint256 intervalSeconds, uint24 poolFee)
+    - event: DCAExecuted(address indexed user, uint256 indexed scheduleId, uint256 amountSpent, uint256 amountReceived)
+    - event: DCAScheduleCancelled(address indexed user, uint256 indexed scheduleId)
+
+  # YieldAgent - Handles yield strategies
+  - name: YieldAgent
+    address:
+    - 0xb95adacB74E981bcfB1e97B4d277E51A95753C8F
+    handler: src/EventHandlers.ts
+    events:
+    - event: YieldStrategyCreated(address indexed user, uint256 indexed strategyId, uint256 amount)
+    - event: DepositExecuted(address indexed user, uint256 indexed strategyId, uint256 amount, uint256 sharesReceived)
+    - event: WithdrawalExecuted(address indexed user, uint256 indexed strategyId, uint256 shares, uint256 amountReceived)
+    - event: RewardsClaimed(address indexed user, uint256 indexed strategyId, uint256 rewardAmount)
+    - event: StrategyPaused(uint256 indexed strategyId)
+    - event: StrategyUnpaused(uint256 indexed strategyId)
+
+unordered_multichain_mode: false
+preload_handlers: true
