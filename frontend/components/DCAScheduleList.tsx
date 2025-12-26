@@ -26,9 +26,9 @@ const GET_USER_SCHEDULES = gql`
       totalUSDCSpent
       totalWETHReceived
       averagePrice
-      active
+      isActive
       createdAt
-      lastExecutionTime
+      lastExecutedAt
     }
   }
 `;
@@ -87,7 +87,7 @@ export default function DCAScheduleList() {
   const totalExecutions = schedules.reduce((sum: number, s: any) => sum + Number(s.totalExecutions), 0);
   const totalUSDCSpent = schedules.reduce((sum: number, s: any) => sum + Number(s.totalUSDCSpent), 0);
   const totalWETHReceived = schedules.reduce((sum: number, s: any) => sum + Number(s.totalWETHReceived), 0);
-  const activeSchedulesCount = schedules.filter((s: any) => s.active).length;
+  const activeSchedulesCount = schedules.filter((s: any) => s.isActive).length;
 
   return (
     <div className="bg-white/5 backdrop-blur-md border border-white/10 rounded-2xl p-8">

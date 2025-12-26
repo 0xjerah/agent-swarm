@@ -9,6 +9,7 @@ type MasterAgent_PermissionDelegated {
   expiry: BigInt!
   timestamp: BigInt!
   blockNumber: BigInt!
+  txHash: String!
 }
 
 type MasterAgent_PermissionRevoked {
@@ -17,6 +18,7 @@ type MasterAgent_PermissionRevoked {
   agent: String!
   timestamp: BigInt!
   blockNumber: BigInt!
+  txHash: String!
 }
 
 type MasterAgent_AgentRegistered {
@@ -48,6 +50,7 @@ type DCAAgent_DCAScheduleCreated {
   poolFee: BigInt!
   timestamp: BigInt!
   blockNumber: BigInt!
+  txHash: String!
 }
 
 type DCAAgent_DCAExecuted {
@@ -67,6 +70,7 @@ type DCAAgent_DCAScheduleCancelled {
   scheduleId: BigInt!
   timestamp: BigInt!
   blockNumber: BigInt!
+  txHash: String!
 }
 
 # YieldAgent Events
@@ -77,6 +81,7 @@ type YieldAgent_YieldStrategyCreated {
   amount: BigInt!
   timestamp: BigInt!
   blockNumber: BigInt!
+  txHash: String!
 }
 
 type YieldAgent_DepositExecuted {
@@ -87,6 +92,7 @@ type YieldAgent_DepositExecuted {
   sharesReceived: BigInt!
   timestamp: BigInt!
   blockNumber: BigInt!
+  txHash: String!
 }
 
 type YieldAgent_WithdrawalExecuted {
@@ -97,6 +103,7 @@ type YieldAgent_WithdrawalExecuted {
   amountReceived: BigInt!
   timestamp: BigInt!
   blockNumber: BigInt!
+  txHash: String!
 }
 
 type YieldAgent_RewardsClaimed {
@@ -106,6 +113,7 @@ type YieldAgent_RewardsClaimed {
   rewardAmount: BigInt!
   timestamp: BigInt!
   blockNumber: BigInt!
+  txHash: String!
 }
 
 # ===== Aggregated Entities for Frontend =====

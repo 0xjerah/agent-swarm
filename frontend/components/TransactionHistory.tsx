@@ -101,7 +101,7 @@ const GET_RECENT_TRANSACTIONS = gql`
       id
       user
       strategyId
-      token
+      amount
       timestamp
       blockNumber
       txHash
@@ -241,7 +241,7 @@ export default function TransactionHistory() {
         event: 'YieldStrategyCreated',
         details: {
           strategyId: event.strategyId,
-          token: event.token,
+          amount: BigInt(event.amount),
         },
       });
     });
