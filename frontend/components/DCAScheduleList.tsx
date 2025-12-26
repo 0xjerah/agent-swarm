@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useAccount, useReadContract, useWriteContract, useWaitForTransactionReceipt } from 'wagmi';
 import { gql } from '@apollo/client';
 import { useQuery as useApolloQuery } from '@apollo/client/react';
@@ -8,7 +8,7 @@ import { formatUnits, decodeEventLog } from 'viem';
 import { dcaAgentABI } from '@/lib/abis/generated/dcaAgent';
 import { masterAgentABI } from '@/lib/abis/generated/masterAgent';
 import { erc20Abi } from '@/lib/abis/erc20';
-import { Loader2, PlayCircle, XCircle, Clock, TrendingUp, AlertCircle, BarChart3 } from 'lucide-react';
+import { Loader2, PlayCircle, XCircle, Clock, TrendingUp, AlertCircle, BarChart3, Timer } from 'lucide-react';
 
 // GraphQL query to fetch user's DCA schedules with execution history
 const GET_USER_SCHEDULES = gql`
@@ -345,11 +345,22 @@ function ScheduleCard({
     return `${Math.floor(s / 86400)}d`;
   };
 
-  // Calculate next execution
+  // Calculate next execution with real-time countdown
+  const [currentTime, setCurrentTime] = useState(Math.floor(Date.now() / 1000));
+
+  useEffect(() => {
+    // Update countdown every second
+    const interval = setInterval(() => {
+      setCurrentTime(Math.floor(Date.now() / 1000));
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, []);
+
   const nextExecution = Number(lastExecutionTime) + Number(intervalSeconds);
-  const now = Math.floor(Date.now() / 1000);
-  const isReady = now >= nextExecution;
-  const timeUntil = nextExecution - now;
+  const isReady = currentTime >= nextExecution;
+  const timeUntil = nextExecution - currentTime;
+  const isCountingDown = timeUntil > 0 && timeUntil <= 60; // Show countdown for last 60 seconds
 
   // Check if user has sufficient USDC balance
   const hasEnoughBalance = usdcBalance ? usdcBalance >= amountPerPurchase : false;
@@ -454,10 +465,26 @@ function ScheduleCard({
 
           {/* Execution Status */}
           {isActive && (
-            <div className="space-y-1">
+            <div className="space-y-2">
+              {/* Countdown Timer - shown when <= 60 seconds remaining */}
+              {isCountingDown && (
+                <div className="bg-gradient-to-r from-orange-500/20 to-red-500/20 border border-orange-500/40 rounded-lg px-3 py-2 animate-pulse">
+                  <div className="flex items-center gap-2">
+                    <Timer size={18} className="text-orange-400 animate-bounce" />
+                    <div className="flex-1">
+                      <div className="text-xs text-orange-300 font-semibold mb-0.5">Execution Starting Soon</div>
+                      <div className="text-2xl font-bold text-orange-200 tabular-nums">
+                        {timeUntil}s
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Regular Status */}
               <div className="flex items-center gap-2 text-sm">
-                <Clock size={16} className={isReady ? 'text-green-400' : 'text-gray-400'} />
-                <span className={isReady ? 'text-green-300' : 'text-gray-300'}>
+                <Clock size={16} className={isReady ? 'text-green-400' : isCountingDown ? 'text-orange-400' : 'text-gray-400'} />
+                <span className={isReady ? 'text-green-300' : isCountingDown ? 'text-orange-300' : 'text-gray-300'}>
                   Next execution: {formatTimeUntil(timeUntil)}
                 </span>
               </div>
