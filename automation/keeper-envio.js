@@ -83,7 +83,7 @@ async function getReadySchedules() {
     query GetReadySchedules {
       DCASchedule(
         where: {
-          active: { _eq: true }
+          isActive: { _eq: true }
         }
       ) {
         id
@@ -91,7 +91,7 @@ async function getReadySchedules() {
         scheduleId
         amountPerPurchase
         intervalSeconds
-        lastExecutionTime
+        lastExecutedAt
         totalExecutions
       }
     }
@@ -120,7 +120,7 @@ async function getReadySchedules() {
     // Filter schedules that are ready to execute
     const allSchedules = result.data?.DCASchedule || [];
     const readySchedules = allSchedules.filter(schedule => {
-      const lastExecution = Number(schedule.lastExecutionTime);
+      const lastExecution = Number(schedule.lastExecutedAt || 0);
       const interval = Number(schedule.intervalSeconds);
       const nextExecution = lastExecution + interval;
       return currentTime >= nextExecution;

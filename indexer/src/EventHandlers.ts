@@ -83,6 +83,7 @@ MasterAgent.PermissionDelegated.handler(async ({ event, context }) => {
   const agentAddress = event.params.agent.toLowerCase();
 
   // Store raw event
+  const txHash = event.block.hash;
   context.MasterAgent_PermissionDelegated.set({
     id: `${event.chainId}_${event.block.number}_${event.logIndex}`,
     user: userAddress,
@@ -91,6 +92,7 @@ MasterAgent.PermissionDelegated.handler(async ({ event, context }) => {
     expiry: event.params.expiry,
     timestamp,
     blockNumber: BigInt(event.block.number),
+    txHash,
   });
 
   // Ensure user exists
@@ -153,12 +155,14 @@ MasterAgent.PermissionRevoked.handler(async ({ event, context }) => {
   const agentAddress = event.params.agent.toLowerCase();
 
   // Store raw event
+  const txHash = event.block.hash;
   context.MasterAgent_PermissionRevoked.set({
     id: `${event.chainId}_${event.block.number}_${event.logIndex}`,
     user: userAddress,
     agent: agentAddress,
     timestamp,
     blockNumber: BigInt(event.block.number),
+    txHash,
   });
 
   // Update Delegation entity
@@ -271,6 +275,7 @@ DCAAgent.DCAScheduleCreated.handler(async ({ event, context }) => {
   const userAddress = event.params.user.toLowerCase();
 
   // Store raw event
+  const txHash = event.block.hash;
   context.DCAAgent_DCAScheduleCreated.set({
     id: `${event.chainId}_${event.block.number}_${event.logIndex}`,
     user: userAddress,
@@ -280,6 +285,7 @@ DCAAgent.DCAScheduleCreated.handler(async ({ event, context }) => {
     poolFee: BigInt(event.params.poolFee),
     timestamp,
     blockNumber: BigInt(event.block.number),
+    txHash,
   });
 
   // Ensure user exists
@@ -407,12 +413,14 @@ DCAAgent.DCAScheduleCancelled.handler(async ({ event, context }) => {
   const scheduleId = `${userAddress}-${event.params.scheduleId}`;
 
   // Store raw event
+  const txHash = event.block.hash;
   context.DCAAgent_DCAScheduleCancelled.set({
     id: `${event.chainId}_${event.block.number}_${event.logIndex}`,
     user: userAddress,
     scheduleId: event.params.scheduleId,
     timestamp,
     blockNumber: BigInt(event.block.number),
+    txHash,
   });
 
   // Update DCASchedule entity
@@ -450,6 +458,7 @@ YieldAgent.YieldStrategyCreated.handler(async ({ event, context }) => {
   const userAddress = event.params.user.toLowerCase();
 
   // Store raw event
+  const txHash = event.block.hash;
   context.YieldAgent_YieldStrategyCreated.set({
     id: `${event.chainId}_${event.block.number}_${event.logIndex}`,
     user: userAddress,
@@ -457,6 +466,7 @@ YieldAgent.YieldStrategyCreated.handler(async ({ event, context }) => {
     amount: event.params.amount,
     timestamp,
     blockNumber: BigInt(event.block.number),
+    txHash,
   });
 
   // Ensure user exists
@@ -505,6 +515,7 @@ YieldAgent.DepositExecuted.handler(async ({ event, context }) => {
   const strategyId = `${userAddress}-${event.params.strategyId}`;
 
   // Store raw event
+  const txHash = event.block.hash;
   context.YieldAgent_DepositExecuted.set({
     id: `${event.chainId}_${event.block.number}_${event.logIndex}`,
     user: userAddress,
@@ -513,6 +524,7 @@ YieldAgent.DepositExecuted.handler(async ({ event, context }) => {
     sharesReceived: event.params.sharesReceived,
     timestamp,
     blockNumber: BigInt(event.block.number),
+    txHash,
   });
 
   // Update YieldStrategy entity
@@ -550,6 +562,7 @@ YieldAgent.WithdrawalExecuted.handler(async ({ event, context }) => {
   const strategyId = `${userAddress}-${event.params.strategyId}`;
 
   // Store raw event
+  const txHash = event.block.hash;
   context.YieldAgent_WithdrawalExecuted.set({
     id: `${event.chainId}_${event.block.number}_${event.logIndex}`,
     user: userAddress,
@@ -558,6 +571,7 @@ YieldAgent.WithdrawalExecuted.handler(async ({ event, context }) => {
     amountReceived: event.params.amountReceived,
     timestamp,
     blockNumber: BigInt(event.block.number),
+    txHash,
   });
 
   // Update YieldStrategy entity
@@ -595,6 +609,7 @@ YieldAgent.RewardsClaimed.handler(async ({ event, context }) => {
   const strategyId = `${userAddress}-${event.params.strategyId}`;
 
   // Store raw event
+  const txHash = event.block.hash;
   context.YieldAgent_RewardsClaimed.set({
     id: `${event.chainId}_${event.block.number}_${event.logIndex}`,
     user: userAddress,
@@ -602,6 +617,7 @@ YieldAgent.RewardsClaimed.handler(async ({ event, context }) => {
     rewardAmount: event.params.rewardAmount,
     timestamp,
     blockNumber: BigInt(event.block.number),
+    txHash,
   });
 
   // Update YieldStrategy entity
