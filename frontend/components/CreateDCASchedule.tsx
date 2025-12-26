@@ -287,7 +287,7 @@ export default function CreateDCASchedule() {
               <p className="text-xs text-gray-400 leading-relaxed">
                 {autoExecute ? (
                   <>
-                    <span className="text-purple-300 font-medium">✓ Automation enabled.</span> Run the keeper service (see <code className="bg-black/30 px-1 rounded">automation/README.md</code>) to execute schedules automatically without MetaMask popups.
+                    <span className="text-purple-300 font-medium">✓ Automation enabled.</span> The keeper service will execute schedules automatically without MetaMask popups.
                   </>
                 ) : (
                   <>Manual execution only. Enable to use keeper service for hands-free automation via ERC-7715 delegation.</>
