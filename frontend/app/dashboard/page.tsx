@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import DelegatePermission from '@/components/DelegatePermission';
 import CreateDCASchedule from '@/components/CreateDCASchedule';
 import DCAScheduleList from '@/components/DCAScheduleList';
+import AutomationToggle from '@/components/AutomationToggle';
 import PermissionTree from '@/components/PermissionTree';
 import CreateYieldStrategy from '@/components/CreateYieldStrategy';
 import YieldStrategyList from '@/components/YieldStrategyList';
@@ -178,6 +179,7 @@ export default function Dashboard() {
           {activeTab === 'delegate' && <DelegatePermission />}
           {activeTab === 'dca' && (
             <>
+              <AutomationToggle />
               <CreateDCASchedule />
               <DCAScheduleList />
             </>

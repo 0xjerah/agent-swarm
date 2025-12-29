@@ -94,6 +94,10 @@ async function getReadySchedules() {
         lastExecutedAt
         totalExecutions
       }
+      User {
+        address
+        automationEnabled
+      }
     }
   `;
 
@@ -117,9 +121,23 @@ async function getReadySchedules() {
       return [];
     }
 
-    // Filter schedules that are ready to execute
+    // Build a map of user automation preferences
+    const users = result.data?.User || [];
+    const automationPrefs = new Map();
+    users.forEach(user => {
+      automationPrefs.set(user.address.toLowerCase(), user.automationEnabled);
+    });
+
+    // Filter schedules that are ready to execute AND user has automation enabled
     const allSchedules = result.data?.DCASchedule || [];
     const readySchedules = allSchedules.filter(schedule => {
+      // Check if user has automation enabled (default to true if not found)
+      const userAutomation = automationPrefs.get(schedule.user.toLowerCase());
+      if (userAutomation === false) {
+        return false; // Skip this schedule - user disabled automation
+      }
+
+      // Check if schedule is ready based on time
       const lastExecution = Number(schedule.lastExecutedAt || 0);
       const interval = Number(schedule.intervalSeconds);
       const nextExecution = lastExecution + interval;
