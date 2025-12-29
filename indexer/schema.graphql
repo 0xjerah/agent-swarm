@@ -141,6 +141,9 @@ type User {
   totalYieldWithdrawn: BigInt!
   totalRewardsClaimed: BigInt!
 
+  # Automation preferences
+  automationEnabled: Boolean!
+
   # Metadata
   firstInteraction: BigInt!
   lastInteraction: BigInt!

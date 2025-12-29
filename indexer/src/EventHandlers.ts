@@ -52,6 +52,7 @@ async function ensureUser(context: any, userAddress: string, timestamp: bigint) 
       totalYieldDeposited: 0n,
       totalYieldWithdrawn: 0n,
       totalRewardsClaimed: 0n,
+      automationEnabled: true,
       firstInteraction: timestamp,
       lastInteraction: timestamp,
     };
