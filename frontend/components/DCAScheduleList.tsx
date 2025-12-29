@@ -55,7 +55,7 @@ export default function DCAScheduleList() {
   const { data, loading, error, refetch } = useApolloQuery(GET_USER_SCHEDULES, {
     variables: { userAddress: address?.toLowerCase() || '' },
     skip: !address,
-    pollInterval: 5000, // Poll every 5 seconds for real-time updates
+    pollInterval: 30000, // Poll every 30 seconds (reduced while indexer syncs)
   });
 
   // Check delegation status (still using RPC for now)

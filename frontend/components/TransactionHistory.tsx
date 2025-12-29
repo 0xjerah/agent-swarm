@@ -145,7 +145,7 @@ export default function TransactionHistory() {
   const { data, loading, error } = useApolloQuery(GET_RECENT_TRANSACTIONS, {
     variables: { userAddress: address?.toLowerCase() || '' },
     skip: !address,
-    pollInterval: 5000, // Poll every 5 seconds for real-time updates
+    pollInterval: 30000, // Poll every 30 seconds (reduced while indexer syncs)
   });
 
   // Combine and transform all events into unified transaction format
