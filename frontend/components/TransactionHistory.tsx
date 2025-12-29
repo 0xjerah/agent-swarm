@@ -129,7 +129,8 @@ const GET_RECENT_TRANSACTIONS = gql`
       id
       user
       strategyId
-      amount
+      shares
+      amountReceived
       timestamp
       blockNumber
       txHash
@@ -271,7 +272,8 @@ export default function TransactionHistory() {
         event: 'WithdrawalExecuted',
         details: {
           strategyId: event.strategyId,
-          amount: BigInt(event.amount),
+          shares: BigInt(event.shares),
+          amountReceived: BigInt(event.amountReceived),
         },
       });
     });
@@ -355,7 +357,8 @@ export default function TransactionHistory() {
         return (
           <>
             <div>Strategy #{details.strategyId?.toString()}</div>
-            <div>Withdrew: {formatUnits(details.amount, 18)} tokens</div>
+            <div>Withdrew: {formatUnits(details.amountReceived, 18)} tokens</div>
+            <div className="text-xs text-gray-400">Shares burned: {formatUnits(details.shares, 18)}</div>
           </>
         );
       default:
