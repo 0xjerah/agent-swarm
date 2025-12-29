@@ -206,6 +206,18 @@ function ScheduleCard({
 
   const scheduleId = Number(scheduleData.scheduleId);
 
+  // Real-time countdown timer state (must be at top level)
+  const [currentTime, setCurrentTime] = useState(Math.floor(Date.now() / 1000));
+
+  useEffect(() => {
+    // Update countdown every second
+    const interval = setInterval(() => {
+      setCurrentTime(Math.floor(Date.now() / 1000));
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, []);
+
   // Get schedule details from contract (for active status and real-time data)
   const { data: schedule, refetch: refetchSchedule } = useReadContract({
     address: dcaAgentAddress,
@@ -345,18 +357,7 @@ function ScheduleCard({
     return `${Math.floor(s / 86400)}d`;
   };
 
-  // Calculate next execution with real-time countdown
-  const [currentTime, setCurrentTime] = useState(Math.floor(Date.now() / 1000));
-
-  useEffect(() => {
-    // Update countdown every second
-    const interval = setInterval(() => {
-      setCurrentTime(Math.floor(Date.now() / 1000));
-    }, 1000);
-
-    return () => clearInterval(interval);
-  }, []);
-
+  // Calculate next execution timing
   const nextExecution = Number(lastExecutionTime) + Number(intervalSeconds);
   const isReady = currentTime >= nextExecution;
   const timeUntil = nextExecution - currentTime;
