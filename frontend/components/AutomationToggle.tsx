@@ -34,9 +34,12 @@ export default function AutomationToggle() {
   const [isSaving, setIsSaving] = useState(false);
 
   // Query user's automation preference from Envio indexer
+  // Note: This will fail until the updated schema is deployed to Envio
   const { data, loading } = useApolloQuery<UserAutomationData>(GET_USER_AUTOMATION, {
     variables: { userAddress: address?.toLowerCase() || '' },
     skip: !address,
+    // Suppress errors until schema is deployed
+    errorPolicy: 'ignore',
   });
 
   // Sync with indexer data when available
