@@ -9,7 +9,7 @@ import { MasterAgent, DCAAgent, YieldAgent } from "generated";
 async function ensureGlobalStats(context: any) {
   let stats = await context.GlobalStats.get("global");
   if (!stats) {
-    context.GlobalStats.set({
+    stats = {
       id: "global",
       totalUsers: 0n,
       activeUsers: 0n,
@@ -26,7 +26,8 @@ async function ensureGlobalStats(context: any) {
       totalYieldWithdrawn: 0n,
       totalRewardsClaimed: 0n,
       totalAgents: 0n,
-    });
+    };
+    context.GlobalStats.set(stats);
   }
   return stats;
 }
