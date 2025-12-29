@@ -2,7 +2,7 @@
 name: agentswarm-indexer
 networks:
 - id: 11155111  # Sepolia testnet
-  start_block: 9908095  # MasterAgent deployment block
+  start_block: 7500000  # Start from earlier block to catch all events
   contracts:
   # MasterAgent - Handles delegations and permissions
   - name: MasterAgent
