@@ -1,11 +1,12 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAccount, useWriteContract, useWaitForTransactionReceipt, useReadContract } from 'wagmi';
 import { parseUnits, formatUnits } from 'viem';
 import { dcaAgentABI } from '@/lib/abis/generated/dcaAgent';
 import { masterAgentABI } from '@/lib/abis/generated/masterAgent';
 import { Loader2, CheckCircle, TrendingUp, AlertCircle, Settings } from 'lucide-react';
+import { apolloClient } from '@/lib/apollo-client';
 
 // Token configuration
 const TOKENS = {
@@ -57,6 +58,15 @@ export default function CreateDCASchedule() {
   const { data: createHash, writeContract: createSchedule, isPending: isCreating } = useWriteContract();
   const { isLoading: isCreateConfirming, isSuccess: isCreateSuccess } = useWaitForTransactionReceipt({ hash: createHash });
 
+  // Auto-refetch schedules when transaction succeeds
+  useEffect(() => {
+    if (isCreateSuccess) {
+      // Refetch all DCA schedule queries to show the new schedule immediately
+      apolloClient.refetchQueries({
+        include: ['GetUserSchedules'],
+      });
+    }
+  }, [isCreateSuccess]);
 
   const handleCreateSchedule = () => {
     if (!amount) {

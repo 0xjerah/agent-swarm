@@ -9,6 +9,7 @@ import { dcaAgentABI } from '@/lib/abis/generated/dcaAgent';
 import { masterAgentABI } from '@/lib/abis/generated/masterAgent';
 import { erc20Abi } from '@/lib/abis/erc20';
 import { Loader2, PlayCircle, XCircle, Clock, TrendingUp, AlertCircle, BarChart3, Timer } from 'lucide-react';
+import { apolloClient } from '@/lib/apollo-client';
 
 // GraphQL query to fetch user's DCA schedules with execution history
 const GET_USER_SCHEDULES = gql`
@@ -345,6 +346,10 @@ function ScheduleCard({
     if (isExecuteSuccess || isExecuteError || isCancelSuccess) {
       refetchSchedule();
       onExecute(); // Also refetch the count in parent
+      // Refetch all DCA schedule queries to update the list immediately
+      apolloClient.refetchQueries({
+        include: ['GetUserSchedules'],
+      });
     }
   }, [isExecuteSuccess, isExecuteError, isCancelSuccess, refetchSchedule, onExecute]);
 
