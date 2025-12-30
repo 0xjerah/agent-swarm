@@ -146,9 +146,8 @@ export default function TransactionHistory() {
   const { data, loading, error, refetch } = useApolloQuery(GET_RECENT_TRANSACTIONS, {
     variables: { userAddress: address?.toLowerCase() || '' },
     skip: !address,
-    fetchPolicy: 'cache-and-network', // Use cache but fetch fresh data in background
+    fetchPolicy: 'network-only', // Always fetch fresh data from network
     pollInterval: 5000, // Poll every 5s for near real-time transaction updates
-    notifyOnNetworkStatusChange: false, // Don't trigger loading state on background polls
   });
 
   // Combine and transform all events into unified transaction format

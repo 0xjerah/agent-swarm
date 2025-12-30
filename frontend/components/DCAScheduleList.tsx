@@ -56,9 +56,8 @@ export default function DCAScheduleList() {
   const { data, loading, error, refetch } = useApolloQuery(GET_USER_SCHEDULES, {
     variables: { userAddress: address?.toLowerCase() || '' },
     skip: !address,
-    fetchPolicy: 'cache-and-network', // Use cache but also fetch in background
+    fetchPolicy: 'network-only', // Always fetch fresh data from network
     pollInterval: 3000, // Poll every 3s for near real-time updates
-    notifyOnNetworkStatusChange: false, // Don't trigger loading state on background polls
   });
 
   // Check delegation status (still using RPC for now)
