@@ -55,7 +55,8 @@ export default function DCAScheduleList() {
   const { data, loading, error, refetch } = useApolloQuery(GET_USER_SCHEDULES, {
     variables: { userAddress: address?.toLowerCase() || '' },
     skip: !address,
-    pollInterval: 10000, // Poll every 10 seconds for responsive UI
+    fetchPolicy: 'cache-and-network', // Use cache but also fetch in background
+    // Removed pollInterval - user can manually refresh instead
   });
 
   // Check delegation status (still using RPC for now)
@@ -91,11 +92,28 @@ export default function DCAScheduleList() {
 
   return (
     <div className="bg-white/5 backdrop-blur-md border border-white/10 rounded-2xl p-8">
-      <div className="mb-6">
-        <h3 className="text-2xl font-bold text-white mb-2">Your DCA Schedules</h3>
-        <p className="text-gray-300 text-sm">
-          Manage and execute your active DCA schedules - updates in real-time!
-        </p>
+      <div className="mb-6 flex items-start justify-between">
+        <div>
+          <h3 className="text-2xl font-bold text-white mb-2">Your DCA Schedules</h3>
+          <p className="text-gray-300 text-sm">
+            Manage and execute your active DCA schedules
+          </p>
+        </div>
+        <button
+          onClick={() => refetch()}
+          disabled={loading}
+          className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg font-medium hover:from-blue-700 hover:to-purple-700 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          <svg
+            className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`}
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+          </svg>
+          {loading ? 'Refreshing...' : 'Refresh'}
+        </button>
       </div>
 
       {/* Stats Summary */}

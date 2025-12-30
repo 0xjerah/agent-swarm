@@ -143,10 +143,11 @@ export default function TransactionHistory() {
   const [filter, setFilter] = useState<'all' | 'permission' | 'dca' | 'yield'>('all');
 
   // Query all transactions from Envio
-  const { data, loading, error } = useApolloQuery(GET_RECENT_TRANSACTIONS, {
+  const { data, loading, error, refetch } = useApolloQuery(GET_RECENT_TRANSACTIONS, {
     variables: { userAddress: address?.toLowerCase() || '' },
     skip: !address,
-    pollInterval: 15000, // Poll every 15 seconds for transaction history
+    fetchPolicy: 'cache-and-network', // Use cache but fetch fresh data in background
+    // Removed pollInterval - reduces unnecessary page refreshes
   });
 
   // Combine and transform all events into unified transaction format
@@ -383,8 +384,23 @@ export default function TransactionHistory() {
             </p>
           </div>
 
-          {/* Filter Buttons */}
-          <div className="flex gap-2">
+          {/* Filter and Refresh Buttons */}
+          <div className="flex gap-2 items-center">
+            <button
+              onClick={() => refetch()}
+              disabled={loading}
+              className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-lg font-medium hover:from-indigo-700 hover:to-purple-700 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <svg
+                className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`}
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              </svg>
+              {loading ? 'Refreshing...' : 'Refresh'}
+            </button>
             <button
               onClick={() => setFilter('all')}
               className={`px-4 py-2 rounded-lg font-medium transition-all ${
