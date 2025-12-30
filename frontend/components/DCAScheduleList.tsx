@@ -53,11 +53,11 @@ export default function DCAScheduleList() {
   const masterAgentAddress = process.env.NEXT_PUBLIC_MASTER_AGENT as `0x${string}`;
 
   // Fetch schedules from Envio GraphQL
-  const { data, loading, error, refetch } = useApolloQuery(GET_USER_SCHEDULES, {
+  const { data, loading, error, refetch, networkStatus } = useApolloQuery(GET_USER_SCHEDULES, {
     variables: { userAddress: address?.toLowerCase() || '' },
     skip: !address,
-    fetchPolicy: 'network-only', // Always fetch fresh data from network
     pollInterval: 3000, // Poll every 3s for near real-time updates
+    notifyOnNetworkStatusChange: false, // Don't show loading on background polls
   });
 
   // Check delegation status (still using RPC for now)

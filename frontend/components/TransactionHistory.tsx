@@ -143,11 +143,11 @@ export default function TransactionHistory() {
   const [filter, setFilter] = useState<'all' | 'permission' | 'dca' | 'yield'>('all');
 
   // Query all transactions from Envio
-  const { data, loading, error, refetch } = useApolloQuery(GET_RECENT_TRANSACTIONS, {
+  const { data, loading, error, refetch, networkStatus } = useApolloQuery(GET_RECENT_TRANSACTIONS, {
     variables: { userAddress: address?.toLowerCase() || '' },
     skip: !address,
-    fetchPolicy: 'network-only', // Always fetch fresh data from network
     pollInterval: 5000, // Poll every 5s for near real-time transaction updates
+    notifyOnNetworkStatusChange: false, // Don't show loading on background polls
   });
 
   // Combine and transform all events into unified transaction format

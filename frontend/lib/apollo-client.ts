@@ -27,8 +27,8 @@ export const apolloClient = new ApolloClient({
   }),
   defaultOptions: {
     watchQuery: {
-      fetchPolicy: 'cache-first', // Use cache first, reduces unnecessary network requests
-      nextFetchPolicy: 'cache-first',
+      fetchPolicy: 'cache-and-network', // Use cache but always fetch fresh data
+      nextFetchPolicy: 'cache-and-network',
     },
     query: {
       fetchPolicy: 'network-only', // Manual queries always fetch fresh data
