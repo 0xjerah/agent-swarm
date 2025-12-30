@@ -57,7 +57,7 @@ export default function DCAScheduleList() {
     variables: { userAddress: address?.toLowerCase() || '' },
     skip: !address,
     fetchPolicy: 'cache-and-network', // Use cache but also fetch in background
-    pollInterval: 30000, // Poll every 30s to catch keeper executions (gentle background updates)
+    pollInterval: 3000, // Poll every 3s for near real-time updates
     notifyOnNetworkStatusChange: false, // Don't trigger loading state on background polls
   });
 

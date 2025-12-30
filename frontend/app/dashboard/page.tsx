@@ -12,8 +12,6 @@ import CreateYieldStrategy from '@/components/CreateYieldStrategy';
 import YieldStrategyList from '@/components/YieldStrategyList';
 import AnalyticsDashboard from '@/components/AnalyticsDashboard';
 import TransactionHistory from '@/components/TransactionHistory';
-import ERC7715Diagnostics from '@/components/ERC7715Diagnostics';
-import TokenBalanceDiagnostics from '@/components/TokenBalanceDiagnostics';
 
 export default function Dashboard() {
   const { address, isConnected } = useAccount();
@@ -21,7 +19,7 @@ export default function Dashboard() {
   const { disconnect } = useDisconnect();
   const router = useRouter();
 
-  const [activeTab, setActiveTab] = useState<'analytics' | 'delegate' | 'dca' | 'yield' | 'tree' | 'history' | 'diagnostics'>('analytics');
+  const [activeTab, setActiveTab] = useState<'analytics' | 'delegate' | 'dca' | 'yield' | 'tree' | 'history'>('analytics');
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
@@ -161,16 +159,6 @@ export default function Dashboard() {
           >
             History
           </button>
-          <button
-            onClick={() => setActiveTab('diagnostics')}
-            className={`flex-1 py-3 px-4 rounded-lg font-medium transition-all duration-300 whitespace-nowrap ${
-              activeTab === 'diagnostics'
-                ? 'bg-gradient-to-r from-yellow-600 to-orange-600 text-white shadow-lg'
-                : 'text-gray-300 hover:bg-white/5'
-            }`}
-          >
-            Diagnostics
-          </button>
         </div>
 
         {/* Content */}
@@ -192,12 +180,6 @@ export default function Dashboard() {
           )}
           {activeTab === 'tree' && <PermissionTree />}
           {activeTab === 'history' && <TransactionHistory />}
-          {activeTab === 'diagnostics' && (
-            <>
-              <TokenBalanceDiagnostics />
-              <ERC7715Diagnostics />
-            </>
-          )}
         </div>
       </div>
     </div>

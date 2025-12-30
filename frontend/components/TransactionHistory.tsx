@@ -147,7 +147,7 @@ export default function TransactionHistory() {
     variables: { userAddress: address?.toLowerCase() || '' },
     skip: !address,
     fetchPolicy: 'cache-and-network', // Use cache but fetch fresh data in background
-    pollInterval: 45000, // Poll every 45s to catch new transactions (gentle background updates)
+    pollInterval: 5000, // Poll every 5s for near real-time transaction updates
     notifyOnNetworkStatusChange: false, // Don't trigger loading state on background polls
   });
 
