@@ -38,7 +38,14 @@ export default function PermissionTree() {
     color: string;
     delegation: any;
   }) => {
-    const isActive = delegation && delegation[4];
+    // Parse delegation struct: [agent, dailyLimit, spentToday, lastResetTimestamp, expiry, active]
+    const isActive = delegation && delegation.active;
+    const dailyLimit = delegation?.dailyLimit || BigInt(0);
+    const spentToday = delegation?.spentToday || BigInt(0);
+    const expiry = delegation?.expiry || BigInt(0);
+    const now = Math.floor(Date.now() / 1000);
+    const isExpired = now > Number(expiry) && dailyLimit > BigInt(0);
+
     const gradient = color === 'green'
       ? 'from-green-500 to-emerald-600'
       : 'from-purple-500 to-pink-600';
@@ -52,23 +59,30 @@ export default function PermissionTree() {
           <div className="text-base font-bold text-white">{name}</div>
         </div>
 
-        {isActive ? (
+        {isActive && !isExpired ? (
           <div className="space-y-3 text-sm">
             <div className="flex justify-between items-center">
               <span className="text-gray-300">Daily Limit:</span>
-              <span className="font-mono text-white font-semibold">{formatUnits(delegation[1], 6)} USDC</span>
+              <span className="font-mono text-white font-semibold">{formatUnits(dailyLimit, 6)} USDC</span>
             </div>
             <div className="flex justify-between items-center">
               <span className="text-gray-300">Spent Today:</span>
-              <span className="font-mono text-gray-300">{formatUnits(delegation[2], 6)} USDC</span>
+              <span className="font-mono text-gray-300">{formatUnits(spentToday, 6)} USDC</span>
             </div>
             <div className="h-px bg-gradient-to-r from-transparent via-white/20 to-transparent"></div>
             <div className="flex justify-between items-center">
               <span className="text-gray-300">Remaining:</span>
               <span className={`font-mono font-bold text-lg bg-gradient-to-r ${gradient} bg-clip-text text-transparent`}>
-                {formatUnits(BigInt(delegation[1]) - BigInt(delegation[2]), 6)} USDC
+                {formatUnits(BigInt(dailyLimit) - BigInt(spentToday), 6)} USDC
               </span>
             </div>
+            <div className="text-xs text-gray-400 mt-2">
+              Expires: {new Date(Number(expiry) * 1000).toLocaleDateString()}
+            </div>
+          </div>
+        ) : isExpired ? (
+          <div className="text-sm text-orange-400 bg-orange-500/10 border border-orange-500/30 rounded-lg p-3 text-center">
+            Delegation expired
           </div>
         ) : (
           <div className="text-sm text-gray-400 bg-white/5 border border-white/10 rounded-lg p-3 text-center">
