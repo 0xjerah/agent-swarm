@@ -244,6 +244,9 @@ function ScheduleCard({
     functionName: 'getSchedule',
     args: [userAddress, BigInt(scheduleId)],
     chainId: 11155111,
+    query: {
+      refetchInterval: 3000, // Poll every 3s to stay in sync with Envio
+    },
   });
 
   // Get user's USDC balance
