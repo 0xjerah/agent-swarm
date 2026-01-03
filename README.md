@@ -66,6 +66,135 @@ AgentSwarm is a DeFi automation platform that combines **ERC-7715 Advanced Permi
 
 ---
 
+## Advanced Permissions Usage
+
+AgentSwarm implements **ERC-7715 Advanced Permissions** to enable secure, autonomous DeFi operations without requiring repeated wallet approvals. This allows users to delegate granular permissions to agents with daily limits, time bounds, and token-specific restrictions.
+
+### Requesting Advanced Permissions
+
+**Code Location**: [frontend/components/DelegateFunds.tsx:147-179](frontend/components/DelegateFunds.tsx#L147-L179)
+
+We request ERC-7715 permissions using the `wallet_grantPermissions` method with token-specific policies:
+
+```typescript
+const permission = await provider.request({
+  method: 'wallet_grantPermissions',
+  params: [{
+    permissions: [{
+      type: 'erc20-token-transfer',
+      data: {
+        token: USDC_ADDRESS
+      },
+      policies: [
+        {
+          type: 'token-allowance',
+          data: {
+            allowance: dailyLimit.toString()
+          }
+        },
+        {
+          type: 'rate-limit',
+          data: {
+            count: 1,
+            interval: 86400 // 24 hours
+          }
+        }
+      ]
+    }]
+  }]
+});
+```
+
+### Redeeming Advanced Permissions
+
+**Code Locations**:
+- DCA Agent: [contracts/src/DCAAgent.sol:84-109](contracts/src/DCAAgent.sol#L84-L109)
+- Yield Agent (Aave): [contracts/src/YieldAgent.sol:129-158](contracts/src/YieldAgent.sol#L129-L158)
+- Yield Agent (Compound): [contracts/src/YieldAgentCompound.sol:117-146](contracts/src/YieldAgentCompound.sol#L117-L146)
+
+Agents redeem permissions through the MasterAgent contract, which enforces all permission constraints:
+
+```solidity
+function executeDCA(address user, uint256 scheduleId) external nonReentrant whenNotPaused {
+    // Redeem permission - enforces daily limit, expiry, and rate limit
+    masterAgent.usePermission(user, address(this), schedule.amountPerPurchase);
+
+    // Execute DCA swap using Uniswap V3
+    // ...
+}
+```
+
+The `usePermission` function in [MasterAgent.sol:88-107](contracts/src/MasterAgent.sol#L88-L107) validates:
+- Permission has not expired
+- Daily limit not exceeded
+- Rate limit not exceeded
+- Agent is authorized
+
+---
+
+## Envio Usage
+
+AgentSwarm uses **Envio HyperSync** for real-time blockchain indexing, providing instant GraphQL access to all on-chain events. This eliminates slow RPC polling and enables rich analytics with sub-second query times.
+
+### How We Use Envio
+
+1. **Real-Time Event Indexing**: All delegation, DCA execution, and yield strategy events are indexed in real-time
+2. **GraphQL Queries**: Frontend queries indexed data via Apollo Client for instant UI updates
+3. **Aggregated Analytics**: Envio calculates totals (spent, received, rewards) automatically
+4. **Multi-Protocol Support**: Separate indexing for Aave V3 and Compound V3 yield strategies
+5. **Polling Updates**: 5-second GraphQL polling for live dashboard updates
+
+### Envio Code Usage Links
+
+#### Schema Definition
+- [indexer/schema.graphql](indexer/schema.graphql) - Complete entity definitions for Delegation, DCASchedule, YieldStrategy
+
+#### Event Handlers
+- **Master Agent Delegations**: [indexer/src/EventHandlers.ts:11-79](indexer/src/EventHandlers.ts#L11-L79)
+- **DCA Schedule Creation**: [indexer/src/EventHandlers.ts:81-132](indexer/src/EventHandlers.ts#L81-L132)
+- **DCA Execution**: [indexer/src/EventHandlers.ts:134-189](indexer/src/EventHandlers.ts#L134-L189)
+- **Yield Strategy (Aave)**: [indexer/src/EventHandlers.ts:456-527](indexer/src/EventHandlers.ts#L456-L527)
+- **Yield Strategy (Compound)**: [indexer/src/EventHandlers.ts:529-586](indexer/src/EventHandlers.ts#L529-L586)
+- **Deposit Execution**: [indexer/src/EventHandlers.ts:588-645](indexer/src/EventHandlers.ts#L588-L645)
+- **Withdrawal Execution**: [indexer/src/EventHandlers.ts:647-691](indexer/src/EventHandlers.ts#L647-L691)
+
+#### Frontend GraphQL Queries
+- **DCA Schedules**: [frontend/components/DCAScheduleList.tsx:14-36](frontend/components/DCAScheduleList.tsx#L14-L36)
+- **Yield Strategies**: [frontend/components/YieldStrategyList.tsx:22-44](frontend/components/YieldStrategyList.tsx#L22-L44)
+- **Delegation History**: [frontend/components/DelegationHistory.tsx:13-29](frontend/components/DelegationHistory.tsx#L13-L29)
+- **Transaction History**: [frontend/components/TransactionHistory.tsx:14-42](frontend/components/TransactionHistory.tsx#L14-L42)
+
+#### Envio Configuration
+- **Contract Configuration**: [indexer/config.yaml](indexer/config.yaml) - Defines all contracts and events to index
+- **Deployment**: Auto-deployed to [https://indexer.dev.hyperindex.xyz/f171fe6/v1/graphql](https://indexer.dev.hyperindex.xyz/f171fe6/v1/graphql)
+
+### Example GraphQL Query
+
+```graphql
+query GetUserDCASchedules($userAddress: String!) {
+  DCASchedule(
+    where: {
+      user: { _eq: $userAddress }
+      isActive: { _eq: true }
+    }
+    order_by: { createdAt: desc }
+  ) {
+    scheduleId
+    tokenIn
+    tokenOut
+    amountPerPurchase
+    intervalSeconds
+    totalExecutions
+    totalUSDCSpent
+    totalWETHReceived
+    averagePrice
+    nextExecutionTime
+  }
+}
+```
+
+---
+
 ## Core Features
 
 ### 1. ERC-7715 Permission System
