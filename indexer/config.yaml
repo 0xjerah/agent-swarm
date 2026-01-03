@@ -25,8 +25,8 @@ networks:
     - event: DCAExecuted(address indexed user, uint256 indexed scheduleId, uint256 amountSpent, uint256 amountReceived)
     - event: DCAScheduleCancelled(address indexed user, uint256 indexed scheduleId)
 
-  # YieldAgent - Handles yield strategies
-  - name: YieldAgent
+  # YieldAgentAave - Handles Aave V3 yield strategies
+  - name: YieldAgentAave
     address:
     - 0xb95adacB74E981bcfB1e97B4d277E51A95753C8F
     handler: src/EventHandlers.ts
@@ -37,6 +37,16 @@ networks:
     - event: RewardsClaimed(address indexed user, uint256 indexed strategyId, uint256 rewardAmount)
     - event: StrategyPaused(uint256 indexed strategyId)
     - event: StrategyUnpaused(uint256 indexed strategyId)
+
+  # YieldAgentCompound - Handles Compound V3 yield strategies
+  - name: YieldAgentCompound
+    address:
+    - 0x7cbD25A489917C3fAc92EFF1e37C3AE2afccbcf2
+    handler: src/EventHandlers.ts
+    events:
+    - event: YieldStrategyCreated(address indexed user, uint256 indexed strategyId, uint256 amount)
+    - event: DepositExecuted(address indexed user, uint256 indexed strategyId, uint256 amount, uint256 sharesReceived)
+    - event: WithdrawalExecuted(address indexed user, uint256 indexed strategyId, uint256 shares, uint256 amountReceived)
 
 unordered_multichain_mode: false
 preload_handlers: true
