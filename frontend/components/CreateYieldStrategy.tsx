@@ -4,18 +4,26 @@ import { useState } from 'react';
 import { useAccount, useWriteContract, useWaitForTransactionReceipt, useReadContract } from 'wagmi';
 import { parseUnits, formatUnits } from 'viem';
 import { yieldAgentCompoundABI } from '@/lib/abis/generated/yieldAgentCompound';
+import { yieldAgentABI } from '@/lib/abis/generated/yieldAgent';
 import { masterAgentABI } from '@/lib/abis/generated/masterAgent';
 import { TrendingUp, Loader2, CheckCircle, AlertCircle, Settings } from 'lucide-react';
 
 export default function CreateYieldStrategy() {
   const { address } = useAccount();
   const [amount, setAmount] = useState('');
-  const [strategyType, setStrategyType] = useState('0'); // 0 = AAVE_SUPPLY
+  const [protocol, setProtocol] = useState<'aave' | 'compound'>('compound'); // Default to Compound
+  const [strategyType, setStrategyType] = useState('0');
   const [autoExecute, setAutoExecute] = useState(false); // Future: automation toggle
 
-  const yieldAgentAddress = process.env.NEXT_PUBLIC_YIELD_AGENT as `0x${string}`;
+  // Contract addresses
+  const yieldAgentCompoundAddress = '0x7cbD25A489917C3fAc92EFF1e37C3AE2afccbcf2' as `0x${string}`;
+  const yieldAgentAaveAddress = '0xb95adacB74E981bcfB1e97B4d277E51A95753C8F' as `0x${string}`;
   const usdcAddress = process.env.NEXT_PUBLIC_USDC_ADDRESS as `0x${string}`;
+  const aUsdcAddress = '0x16dA4541aD1807f4443d92D26044C1147406EB80' as `0x${string}`; // Aave aUSDC
   const masterAgentAddress = process.env.NEXT_PUBLIC_MASTER_AGENT as `0x${string}`;
+
+  // Select contract based on protocol
+  const yieldAgentAddress = protocol === 'compound' ? yieldAgentCompoundAddress : yieldAgentAaveAddress;
 
   // Read delegation data from MasterAgent
   const { data: delegation } = useReadContract({
@@ -35,17 +43,33 @@ export default function CreateYieldStrategy() {
   const handleCreateStrategy = () => {
     if (!amount) return;
 
-    createStrategy({
-      address: yieldAgentAddress,
-      abi: yieldAgentCompoundABI,
-      functionName: 'createYieldStrategy',
-      args: [
-        usdcAddress,
-        parseInt(strategyType),
-        parseUnits(amount, 6),
-      ],
-      chainId: 11155111,
-    });
+    if (protocol === 'compound') {
+      createStrategy({
+        address: yieldAgentAddress,
+        abi: yieldAgentCompoundABI,
+        functionName: 'createYieldStrategy',
+        args: [
+          usdcAddress,
+          parseInt(strategyType),
+          parseUnits(amount, 6),
+        ],
+        chainId: 11155111,
+      });
+    } else {
+      // Aave
+      createStrategy({
+        address: yieldAgentAddress,
+        abi: yieldAgentABI,
+        functionName: 'createYieldStrategy',
+        args: [
+          usdcAddress,
+          aUsdcAddress,
+          parseInt(strategyType),
+          parseUnits(amount, 6),
+        ],
+        chainId: 11155111,
+      });
+    }
   };
 
   // Calculate remaining delegation allowance
@@ -79,10 +103,17 @@ export default function CreateYieldStrategy() {
   // Only show status if user has entered an amount
   const shouldShowStatus = amount && parseFloat(amount) > 0;
 
-  const strategies = [
+  const compoundStrategies = [
     { value: '0', name: 'Compound Supply', apy: '3.50%', risk: 'Low', description: 'Earn stable yield on Compound V3' },
     { value: '1', name: 'Compound Collateral', apy: '4.20%', risk: 'Low', description: 'Use as collateral for higher yields' },
   ];
+
+  const aaveStrategies = [
+    { value: '0', name: 'Aave Supply', apy: '4.50%', risk: 'Low', description: 'Earn stable yield on Aave V3 (may hit cap)' },
+    { value: '1', name: 'Aave E-Mode', apy: '5.20%', risk: 'Low', description: 'Enhanced efficiency mode for higher yields' },
+  ];
+
+  const strategies = protocol === 'compound' ? compoundStrategies : aaveStrategies;
 
   return (
     <div className="bg-white/5 backdrop-blur-md border border-white/10 rounded-2xl p-8 hover:bg-white/[0.07] transition-all duration-300">
@@ -125,6 +156,37 @@ export default function CreateYieldStrategy() {
       )}
 
       <div className="space-y-6">
+        {/* Protocol Selection */}
+        <div className="space-y-3">
+          <label className="block text-sm font-semibold text-white mb-3">
+            Select Protocol
+          </label>
+          <div className="grid grid-cols-2 gap-3">
+            <button
+              onClick={() => { setProtocol('compound'); setStrategyType('0'); }}
+              className={`p-4 border-2 rounded-xl transition-all duration-300 ${
+                protocol === 'compound'
+                  ? 'border-green-500/50 bg-green-500/10 shadow-lg shadow-green-500/20'
+                  : 'border-white/10 bg-white/5 hover:border-green-500/30 hover:bg-white/[0.07]'
+              }`}
+            >
+              <div className="font-bold text-white text-base">Compound V3</div>
+              <div className="text-xs text-gray-400 mt-1">Reliable, no cap limits</div>
+            </button>
+            <button
+              onClick={() => { setProtocol('aave'); setStrategyType('0'); }}
+              className={`p-4 border-2 rounded-xl transition-all duration-300 ${
+                protocol === 'aave'
+                  ? 'border-purple-500/50 bg-purple-500/10 shadow-lg shadow-purple-500/20'
+                  : 'border-white/10 bg-white/5 hover:border-purple-500/30 hover:bg-white/[0.07]'
+              }`}
+            >
+              <div className="font-bold text-white text-base">Aave V3</div>
+              <div className="text-xs text-orange-400 mt-1">May hit supply cap</div>
+            </button>
+          </div>
+        </div>
+
         <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-xl p-5 hover:bg-white/[0.07] transition-all duration-300">
           <label className="block text-sm font-semibold text-white mb-3">
             Target Allocation (USDC)

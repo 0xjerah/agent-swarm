@@ -3,49 +3,81 @@
 import { useAccount, useReadContract, useWriteContract, useWaitForTransactionReceipt } from 'wagmi';
 import { formatUnits } from 'viem';
 import { yieldAgentCompoundABI } from '@/lib/abis/generated/yieldAgentCompound';
+import { yieldAgentABI } from '@/lib/abis/generated/yieldAgent';
 import { masterAgentABI } from '@/lib/abis/generated/masterAgent';
 import { Loader2, XCircle, TrendingUp, DollarSign, AlertCircle, Clock } from 'lucide-react';
 
 export default function YieldStrategyList() {
   const { address } = useAccount();
-  const yieldAgentAddress = process.env.NEXT_PUBLIC_YIELD_AGENT as `0x${string}`;
+
+  // Both YieldAgent contract addresses
+  const yieldAgentCompoundAddress = '0x7cbD25A489917C3fAc92EFF1e37C3AE2afccbcf2' as `0x${string}`;
+  const yieldAgentAaveAddress = '0xb95adacB74E981bcfB1e97B4d277E51A95753C8F' as `0x${string}`;
   const masterAgentAddress = process.env.NEXT_PUBLIC_MASTER_AGENT as `0x${string}`;
 
-  // Get user's strategy count
-  const { data: strategyCount, refetch: refetchCount } = useReadContract({
-    address: yieldAgentAddress,
+  // Get strategy counts from both contracts
+  const { data: compoundStrategyCount, refetch: refetchCompound } = useReadContract({
+    address: yieldAgentCompoundAddress,
     abi: yieldAgentCompoundABI,
     functionName: 'getUserStrategyCount',
     args: address ? [address] : undefined,
     chainId: 11155111,
   });
 
-  // Check delegation status
-  const { data: delegation } = useReadContract({
-    address: masterAgentAddress,
-    abi: masterAgentABI,
-    functionName: 'getDelegation',
-    args: address ? [address, yieldAgentAddress] : undefined,
+  const { data: aaveStrategyCount, refetch: refetchAave } = useReadContract({
+    address: yieldAgentAaveAddress,
+    abi: yieldAgentABI,
+    functionName: 'getUserStrategyCount',
+    args: address ? [address] : undefined,
     chainId: 11155111,
   });
 
-  const strategyIds = strategyCount
-    ? Array.from({ length: Number(strategyCount) }, (_, i) => i)
+  // Check delegation status for both
+  const { data: compoundDelegation } = useReadContract({
+    address: masterAgentAddress,
+    abi: masterAgentABI,
+    functionName: 'getDelegation',
+    args: address ? [address, yieldAgentCompoundAddress] : undefined,
+    chainId: 11155111,
+  });
+
+  const { data: aaveDelegation } = useReadContract({
+    address: masterAgentAddress,
+    abi: masterAgentABI,
+    functionName: 'getDelegation',
+    args: address ? [address, yieldAgentAaveAddress] : undefined,
+    chainId: 11155111,
+  });
+
+  // Build strategy lists
+  const compoundStrategyIds = compoundStrategyCount
+    ? Array.from({ length: Number(compoundStrategyCount) }, (_, i) => ({ id: i, protocol: 'compound' as const, address: yieldAgentCompoundAddress }))
     : [];
 
-  // Parse delegation
-  const parseDelegation = () => {
+  const aaveStrategyIds = aaveStrategyCount
+    ? Array.from({ length: Number(aaveStrategyCount) }, (_, i) => ({ id: i, protocol: 'aave' as const, address: yieldAgentAaveAddress }))
+    : [];
+
+  const allStrategyIds = [...compoundStrategyIds, ...aaveStrategyIds];
+
+  // Parse delegation helper
+  const parseDelegation = (delegation: any) => {
     if (!delegation) return { isActive: false, isExpired: false, hasNeverDelegated: true };
     const { dailyLimit, active, expiry } = delegation as any;
     const now = Math.floor(Date.now() / 1000);
     const hasNeverDelegated = dailyLimit === BigInt(0);
-    // Match contract logic: block.timestamp > permission.expiry
     const isExpired = now > Number(expiry) && !hasNeverDelegated;
     const isActive = active && !isExpired;
     return { isActive, isExpired, hasNeverDelegated, expiredAt: new Date(Number(expiry) * 1000) };
   };
 
-  const delegationStatus = parseDelegation();
+  const compoundDelegationStatus = parseDelegation(compoundDelegation);
+  const aaveDelegationStatus = parseDelegation(aaveDelegation);
+
+  const refetchAll = () => {
+    refetchCompound();
+    refetchAave();
+  };
 
   return (
     <div className="bg-white/5 backdrop-blur-md border border-white/10 rounded-2xl p-8">
@@ -56,36 +88,7 @@ export default function YieldStrategyList() {
         </p>
       </div>
 
-      {/* Delegation Status Warning */}
-      {!delegationStatus.isActive && strategyIds.length > 0 && (
-        <div className="mb-6 bg-orange-500/10 border border-orange-500/30 rounded-xl p-4">
-          <div className="flex items-start gap-3">
-            <AlertCircle size={20} className="text-orange-400 flex-shrink-0 mt-0.5" />
-            <div>
-              <p className="text-orange-300 font-semibold mb-1">
-                {delegationStatus.isExpired ? 'Delegation Expired' : 'No Active Delegation'}
-              </p>
-              <p className="text-orange-200 text-sm">
-                {delegationStatus.isExpired ? (
-                  <>
-                    Your delegation expired on {delegationStatus.expiredAt?.toLocaleDateString()} at{' '}
-                    {delegationStatus.expiredAt?.toLocaleTimeString()}. You cannot execute deposits until you create a new delegation.
-                  </>
-                ) : (
-                  <>
-                    You need to delegate permissions to the Yield Agent before you can execute deposits.
-                  </>
-                )}
-              </p>
-              <p className="text-orange-200 text-sm mt-2">
-                Go to the <strong>Delegate</strong> tab to {delegationStatus.isExpired ? 'renew' : 'create'} your delegation.
-              </p>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {strategyIds.length === 0 ? (
+      {allStrategyIds.length === 0 ? (
         <div className="text-center py-12 text-gray-400">
           <TrendingUp size={48} className="mx-auto mb-4 opacity-50" />
           <p>No yield strategies created yet</p>
@@ -93,14 +96,15 @@ export default function YieldStrategyList() {
         </div>
       ) : (
         <div className="space-y-4">
-          {strategyIds.map((strategyId) => (
+          {allStrategyIds.map((strategy) => (
             <StrategyCard
-              key={strategyId}
-              strategyId={strategyId}
+              key={`${strategy.protocol}-${strategy.id}`}
+              strategyId={strategy.id}
+              protocol={strategy.protocol}
               userAddress={address!}
-              yieldAgentAddress={yieldAgentAddress}
-              onExecute={() => refetchCount()}
-              delegationActive={delegationStatus.isActive}
+              yieldAgentAddress={strategy.address}
+              onExecute={refetchAll}
+              delegationActive={strategy.protocol === 'compound' ? compoundDelegationStatus.isActive : aaveDelegationStatus.isActive}
             />
           ))}
         </div>
@@ -111,21 +115,25 @@ export default function YieldStrategyList() {
 
 function StrategyCard({
   strategyId,
+  protocol,
   userAddress,
   yieldAgentAddress,
   onExecute,
   delegationActive,
 }: {
   strategyId: number;
+  protocol: 'compound' | 'aave';
   userAddress: `0x${string}`;
   yieldAgentAddress: `0x${string}`;
   onExecute: () => void;
   delegationActive: boolean;
 }) {
-  // Get strategy details
+  const isCompound = protocol === 'compound';
+
+  // Get strategy details using the correct ABI
   const { data: strategy } = useReadContract({
     address: yieldAgentAddress,
-    abi: yieldAgentCompoundABI,
+    abi: isCompound ? yieldAgentCompoundABI : yieldAgentABI,
     functionName: 'getStrategy',
     args: [userAddress, BigInt(strategyId)],
     chainId: 11155111,
@@ -146,7 +154,7 @@ function StrategyCard({
   const handleDeposit = () => {
     executeDeposit({
       address: yieldAgentAddress,
-      abi: yieldAgentCompoundABI,
+      abi: isCompound ? yieldAgentCompoundABI : yieldAgentABI,
       functionName: 'executeDeposit',
       args: [userAddress, BigInt(strategyId)],
       chainId: 11155111,
@@ -157,7 +165,7 @@ function StrategyCard({
   const handleCancel = () => {
     cancelStrategy({
       address: yieldAgentAddress,
-      abi: yieldAgentCompoundABI,
+      abi: isCompound ? yieldAgentCompoundABI : yieldAgentABI,
       functionName: 'deactivateStrategy',
       args: [BigInt(strategyId)],
       chainId: 11155111,
@@ -166,7 +174,8 @@ function StrategyCard({
 
   if (!strategy) return null;
 
-  // Destructure the strategy struct (Compound V3 doesn't have aToken)
+  // Destructure the strategy struct
+  const strategyData = strategy as any;
   const {
     token,
     strategyType: stratType,
@@ -175,10 +184,13 @@ function StrategyCard({
     totalYieldEarned,
     lastHarvestTime,
     active: isActive,
-  } = strategy as any;
+  } = strategyData;
 
-  const strategyTypes = ['Compound Supply', 'Compound Collateral'];
+  const compoundStrategyTypes = ['Compound Supply', 'Compound Collateral'];
+  const aaveStrategyTypes = ['Aave Supply', 'Aave E-Mode'];
+  const strategyTypes = isCompound ? compoundStrategyTypes : aaveStrategyTypes;
   const strategyName = strategyTypes[Number(stratType)] || `Type ${stratType}`;
+  const protocolName = isCompound ? 'Compound V3' : 'Aave V3';
 
   // Calculate utilization percentage
   const utilizationPercent = targetAllocation > BigInt(0)
@@ -324,7 +336,7 @@ function StrategyCard({
       {/* Success Messages */}
       {isDepositSuccess && (
         <div className="mt-3 bg-green-500/10 border border-green-500/30 text-green-300 px-4 py-2 rounded-lg text-sm">
-          ✓ Deposit executed successfully! Funds deployed to Compound V3.
+          ✓ Deposit executed successfully! Funds deployed to {protocolName}.
         </div>
       )}
       {isCancelSuccess && (
