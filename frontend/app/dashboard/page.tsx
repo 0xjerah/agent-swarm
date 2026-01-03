@@ -12,6 +12,7 @@ import CreateYieldStrategy from '@/components/CreateYieldStrategy';
 import YieldStrategyList from '@/components/YieldStrategyList';
 import AnalyticsDashboard from '@/components/AnalyticsDashboard';
 import TransactionHistory from '@/components/TransactionHistory';
+import DelegationHistory from '@/components/DelegationHistory';
 
 export default function Dashboard() {
   const { address, isConnected } = useAccount();
@@ -179,7 +180,12 @@ export default function Dashboard() {
             </>
           )}
           {activeTab === 'tree' && <PermissionTree />}
-          {activeTab === 'history' && <TransactionHistory />}
+          {activeTab === 'history' && (
+            <>
+              <DelegationHistory />
+              <TransactionHistory />
+            </>
+          )}
         </div>
       </div>
     </div>

@@ -8,7 +8,8 @@ import { Bot, TrendingUp, Repeat } from 'lucide-react';
 export default function PermissionTree() {
   const { address } = useAccount();
   const dcaAgentAddress = process.env.NEXT_PUBLIC_DCA_AGENT as `0x${string}`;
-  const yieldAgentAddress = process.env.NEXT_PUBLIC_YIELD_AGENT as `0x${string}`;
+  const yieldAgentCompoundAddress = '0x7cbD25A489917C3fAc92EFF1e37C3AE2afccbcf2' as `0x${string}`;
+  const yieldAgentAaveAddress = '0xb95adacB74E981bcfB1e97B4d277E51A95753C8F' as `0x${string}`;
   const masterAgentAddress = process.env.NEXT_PUBLIC_MASTER_AGENT as `0x${string}`;
 
   const { data: dcaDelegation } = useReadContract({
@@ -19,13 +20,48 @@ export default function PermissionTree() {
     chainId: 11155111, // Sepolia testnet
   });
 
-  const { data: yieldDelegation } = useReadContract({
+  // Fetch delegations from both Compound and Aave yield agents
+  const { data: compoundDelegation } = useReadContract({
     address: masterAgentAddress,
     abi: masterAgentABI,
     functionName: 'getDelegation',
-    args: address && yieldAgentAddress ? [address, yieldAgentAddress] : undefined,
+    args: address && yieldAgentCompoundAddress ? [address, yieldAgentCompoundAddress] : undefined,
     chainId: 11155111, // Sepolia testnet
   });
+
+  const { data: aaveDelegation } = useReadContract({
+    address: masterAgentAddress,
+    abi: masterAgentABI,
+    functionName: 'getDelegation',
+    args: address && yieldAgentAaveAddress ? [address, yieldAgentAaveAddress] : undefined,
+    chainId: 11155111, // Sepolia testnet
+  });
+
+  // Combine both yield delegations - show active if either is active
+  const combinedYieldDelegation = (() => {
+    const compoundActive = compoundDelegation?.active ?? false;
+    const aaveActive = aaveDelegation?.active ?? false;
+
+    // If both are active, combine their limits and spending
+    if (compoundActive && aaveActive) {
+      return {
+        active: true,
+        dailyLimit: (compoundDelegation?.dailyLimit || BigInt(0)) + (aaveDelegation?.dailyLimit || BigInt(0)),
+        spentToday: (compoundDelegation?.spentToday || BigInt(0)) + (aaveDelegation?.spentToday || BigInt(0)),
+        expiry: compoundDelegation?.expiry || aaveDelegation?.expiry || BigInt(0),
+        lastResetTimestamp: compoundDelegation?.lastResetTimestamp || aaveDelegation?.lastResetTimestamp || BigInt(0),
+      };
+    }
+
+    // If only Compound is active, return it
+    if (compoundActive) return compoundDelegation;
+
+    // If only Aave is active, return it
+    if (aaveActive) return aaveDelegation;
+
+    // Neither is active, return undefined
+    return undefined;
+  })();
 
   const AgentCard = ({
     icon: Icon,
@@ -163,7 +199,7 @@ export default function PermissionTree() {
               icon={TrendingUp}
               name="Yield Agent"
               color="purple"
-              delegation={yieldDelegation}
+              delegation={combinedYieldDelegation}
             />
           </div>
         </div>

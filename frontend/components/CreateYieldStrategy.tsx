@@ -1,19 +1,18 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAccount, useWriteContract, useWaitForTransactionReceipt, useReadContract } from 'wagmi';
 import { parseUnits, formatUnits } from 'viem';
 import { yieldAgentCompoundABI } from '@/lib/abis/generated/yieldAgentCompound';
 import { yieldAgentABI } from '@/lib/abis/generated/yieldAgent';
 import { masterAgentABI } from '@/lib/abis/generated/masterAgent';
-import { TrendingUp, Loader2, CheckCircle, AlertCircle, Settings } from 'lucide-react';
+import { TrendingUp, Loader2, CheckCircle, AlertCircle } from 'lucide-react';
 
 export default function CreateYieldStrategy() {
   const { address } = useAccount();
   const [amount, setAmount] = useState('');
   const [protocol, setProtocol] = useState<'aave' | 'compound'>('compound'); // Default to Compound
   const [strategyType, setStrategyType] = useState('0');
-  const [autoExecute, setAutoExecute] = useState(false); // Future: automation toggle
 
   // Contract addresses
   const yieldAgentCompoundAddress = '0x7cbD25A489917C3fAc92EFF1e37C3AE2afccbcf2' as `0x${string}`;
@@ -26,19 +25,27 @@ export default function CreateYieldStrategy() {
   const yieldAgentAddress = protocol === 'compound' ? yieldAgentCompoundAddress : yieldAgentAaveAddress;
 
   // Read delegation data from MasterAgent
-  const { data: delegation } = useReadContract({
+  const { data: delegation, refetch: refetchDelegation } = useReadContract({
     address: masterAgentAddress,
     abi: masterAgentABI,
     functionName: 'getDelegation',
     args: address ? [address, yieldAgentAddress] : undefined,
     query: {
       enabled: !!address,
+      refetchInterval: 5000, // Poll every 5 seconds
     },
   });
 
   // Create strategy transaction
   const { data: createHash, writeContract: createStrategy, isPending: isCreating } = useWriteContract();
   const { isLoading: isCreateConfirming, isSuccess: isCreateSuccess } = useWaitForTransactionReceipt({ hash: createHash });
+
+  // Refetch delegation when protocol changes
+  useEffect(() => {
+    if (address && refetchDelegation) {
+      refetchDelegation();
+    }
+  }, [protocol, address, refetchDelegation]);
 
   const handleCreateStrategy = () => {
     if (!amount) return;
@@ -150,6 +157,9 @@ export default function CreateYieldStrategy() {
               {!isActive && ' (inactive)'}
               {isExpired && ' (expired)'}
               {isActive && !isExpired && !hasAllowance && ' (insufficient)'}
+              <div className="text-xs mt-1 text-gray-400">
+                Agent: {yieldAgentAddress.slice(0, 6)}...{yieldAgentAddress.slice(-4)}
+              </div>
             </div>
           </div>
         </div>
@@ -246,34 +256,6 @@ export default function CreateYieldStrategy() {
                 </div>
               </label>
             ))}
-          </div>
-        </div>
-
-        {/* Automation Toggle (Future Feature) */}
-        <div className="bg-gradient-to-r from-purple-500/10 to-pink-500/10 backdrop-blur-sm border border-purple-500/30 rounded-xl p-5">
-          <div className="flex items-start gap-3">
-            <Settings size={20} className="text-purple-400 mt-0.5 flex-shrink-0" />
-            <div className="flex-1">
-              <div className="flex items-center justify-between mb-2">
-                <label className="text-sm font-semibold text-white">
-                  Auto-Execute (Coming Soon)
-                </label>
-                <div className="relative">
-                  <input
-                    type="checkbox"
-                    checked={autoExecute}
-                    onChange={(e) => setAutoExecute(e.target.checked)}
-                    disabled={true}
-                    className="sr-only peer"
-                  />
-                  <div className="w-11 h-6 bg-gray-600 rounded-full peer peer-checked:bg-purple-600 peer-disabled:opacity-50 transition-colors"></div>
-                  <div className="absolute left-1 top-1 bg-white w-4 h-4 rounded-full transition-transform peer-checked:translate-x-5"></div>
-                </div>
-              </div>
-              <p className="text-xs text-gray-400 leading-relaxed">
-                Enable automated deposits via keeper network. Your strategy will deposit funds automatically when conditions are met.
-              </p>
-            </div>
           </div>
         </div>
 

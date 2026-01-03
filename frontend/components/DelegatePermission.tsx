@@ -14,12 +14,13 @@ export default function DelegatePermission() {
   const { data: walletClient } = useWalletClient({ chainId });
   const [dailyLimit, setDailyLimit] = useState('');
   const [durationDays, setDurationDays] = useState('30');
-  const [selectedAgents, setSelectedAgents] = useState<('dca' | 'yield')[]>(['dca']);
+  const [selectedAgents, setSelectedAgents] = useState<('dca' | 'yieldCompound' | 'yieldAave')[]>(['dca']);
   const [step, setStep] = useState<'input' | 'approval' | 'erc7715' | 'contract'>('input');
   const [transactionDetails, setTransactionDetails] = useState<string>('');
 
   const dcaAgentAddress = process.env.NEXT_PUBLIC_DCA_AGENT as `0x${string}`;
-  const yieldAgentAddress = process.env.NEXT_PUBLIC_YIELD_AGENT as `0x${string}`;
+  const yieldAgentCompoundAddress = '0x7cbD25A489917C3fAc92EFF1e37C3AE2afccbcf2' as `0x${string}`;
+  const yieldAgentAaveAddress = '0xb95adacB74E981bcfB1e97B4d277E51A95753C8F' as `0x${string}`;
   const usdcAddress = process.env.NEXT_PUBLIC_USDC_ADDRESS as `0x${string}`;
   const masterAgentAddress = process.env.NEXT_PUBLIC_MASTER_AGENT as `0x${string}`;
 
@@ -196,10 +197,6 @@ export default function DelegatePermission() {
       return;
     }
 
-    const dcaAgentAddress = process.env.NEXT_PUBLIC_DCA_AGENT as `0x${string}`;
-    const yieldAgentAddress = process.env.NEXT_PUBLIC_YIELD_AGENT as `0x${string}`;
-    const masterAgentAddress = process.env.NEXT_PUBLIC_MASTER_AGENT as `0x${string}`;
-
     // Convert duration from days to seconds (supports fractional days for demo)
     const durationInSeconds = BigInt(Math.floor(parseFloat(durationDays) * 86400));
 
@@ -221,8 +218,21 @@ export default function DelegatePermission() {
       // Delegate to each selected agent
       for (let i = 0; i < selectedAgents.length; i++) {
         const agentType = selectedAgents[i];
-        const agentAddress = agentType === 'dca' ? dcaAgentAddress : yieldAgentAddress;
-        const agentName = agentType === 'dca' ? 'DCA Agent' : 'Yield Agent';
+
+        // Map agent type to address and name
+        let agentAddress: `0x${string}`;
+        let agentName: string;
+
+        if (agentType === 'dca') {
+          agentAddress = dcaAgentAddress;
+          agentName = 'DCA Agent';
+        } else if (agentType === 'yieldCompound') {
+          agentAddress = yieldAgentCompoundAddress;
+          agentName = 'Yield Agent (Compound V3)';
+        } else {
+          agentAddress = yieldAgentAaveAddress;
+          agentName = 'Yield Agent (Aave V3)';
+        }
 
         setTransactionDetails(`Sending transaction for ${agentName} (${i + 1}/${selectedAgents.length})...`);
 
@@ -379,7 +389,7 @@ export default function DelegatePermission() {
           />
           <p className="text-xs text-gray-400 mt-2 flex items-center gap-1.5">
             <span className="w-1 h-1 bg-blue-400 rounded-full"></span>
-            This will be split between DCA and Yield agents
+            This will be split evenly between selected agents
           </p>
         </div>
 
@@ -410,20 +420,39 @@ export default function DelegatePermission() {
             <label className="flex items-center gap-3 p-4 bg-white/5 border border-white/10 rounded-lg cursor-pointer hover:bg-white/10 transition-all">
               <input
                 type="checkbox"
-                checked={selectedAgents.includes('yield')}
+                checked={selectedAgents.includes('yieldCompound')}
                 onChange={(e) => {
                   if (e.target.checked) {
-                    setSelectedAgents([...selectedAgents, 'yield']);
+                    setSelectedAgents([...selectedAgents, 'yieldCompound']);
                   } else {
-                    setSelectedAgents(selectedAgents.filter(a => a !== 'yield'));
+                    setSelectedAgents(selectedAgents.filter(a => a !== 'yieldCompound'));
                   }
                 }}
                 disabled={step !== 'input'}
                 className="w-5 h-5 text-green-500 rounded focus:ring-green-500"
               />
               <div className="flex-1">
-                <div className="text-white font-semibold">Yield Agent</div>
-                <div className="text-xs text-gray-400">Automated yield farming with Aave V3</div>
+                <div className="text-white font-semibold">Yield Agent (Compound V3)</div>
+                <div className="text-xs text-gray-400">Automated yield farming with Compound V3 - reliable, no cap limits</div>
+              </div>
+            </label>
+            <label className="flex items-center gap-3 p-4 bg-white/5 border border-white/10 rounded-lg cursor-pointer hover:bg-white/10 transition-all">
+              <input
+                type="checkbox"
+                checked={selectedAgents.includes('yieldAave')}
+                onChange={(e) => {
+                  if (e.target.checked) {
+                    setSelectedAgents([...selectedAgents, 'yieldAave']);
+                  } else {
+                    setSelectedAgents(selectedAgents.filter(a => a !== 'yieldAave'));
+                  }
+                }}
+                disabled={step !== 'input'}
+                className="w-5 h-5 text-purple-500 rounded focus:ring-purple-500"
+              />
+              <div className="flex-1">
+                <div className="text-white font-semibold">Yield Agent (Aave V3)</div>
+                <div className="text-xs text-gray-400">Automated yield farming with Aave V3 - may hit supply cap</div>
               </div>
             </label>
           </div>

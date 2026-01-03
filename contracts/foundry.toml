@@ -10,3 +10,4 @@ via_ir = false
 [rpc_endpoints]
 # Add EIP-7702 supported networks (check MetaMask docs for current networks)
 odyssey = "https://odyssey.storyrpc.io"  # Example - verify actual supported networks
+sepolia = "https://sepolia.infura.io/v3/7409a848634e47a0bdd5264df68c2576"

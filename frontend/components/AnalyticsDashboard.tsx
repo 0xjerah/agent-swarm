@@ -5,6 +5,7 @@ import { formatUnits } from 'viem';
 import { masterAgentABI } from '@/lib/abis/generated/masterAgent';
 import { dcaAgentABI } from '@/lib/abis/generated/dcaAgent';
 import { yieldAgentABI } from '@/lib/abis/generated/yieldAgent';
+import { yieldAgentCompoundABI } from '@/lib/abis/generated/yieldAgentCompound';
 import { erc20Abi } from '@/lib/abis/erc20';
 import { TrendingUp, DollarSign, Activity, Clock, BarChart3, Wallet } from 'lucide-react';
 
@@ -20,19 +21,30 @@ export default function AnalyticsDashboard() {
     chainId: 11155111, // Sepolia testnet
   });
 
-  // Read Yield strategy count
-  const { data: yieldStrategyCount } = useReadContract({
-    address: process.env.NEXT_PUBLIC_YIELD_AGENT as `0x${string}`,
+  // Both YieldAgent contract addresses
+  const yieldAgentCompoundAddress = '0x7cbD25A489917C3fAc92EFF1e37C3AE2afccbcf2' as `0x${string}`;
+  const yieldAgentAaveAddress = '0xb95adacB74E981bcfB1e97B4d277E51A95753C8F' as `0x${string}`;
+
+  // Read Yield strategy counts from both contracts
+  const { data: compoundStrategyCount } = useReadContract({
+    address: yieldAgentCompoundAddress,
+    abi: yieldAgentCompoundABI,
+    functionName: 'getUserStrategyCount',
+    args: address ? [address] : undefined,
+    chainId: 11155111, // Sepolia testnet
+  });
+
+  const { data: aaveStrategyCount } = useReadContract({
+    address: yieldAgentAaveAddress,
     abi: yieldAgentABI,
     functionName: 'getUserStrategyCount',
     args: address ? [address] : undefined,
     chainId: 11155111, // Sepolia testnet
   });
 
-  // Read delegations for both agents
+  // Read delegations for all agents
   const masterAgentAddress = process.env.NEXT_PUBLIC_MASTER_AGENT as `0x${string}`;
   const dcaAgentAddress = process.env.NEXT_PUBLIC_DCA_AGENT as `0x${string}`;
-  const yieldAgentAddress = process.env.NEXT_PUBLIC_YIELD_AGENT as `0x${string}`;
   const usdcAddress = process.env.NEXT_PUBLIC_USDC_ADDRESS as `0x${string}`;
 
   const { data: dcaDelegation } = useReadContract({
@@ -43,11 +55,19 @@ export default function AnalyticsDashboard() {
     chainId: 11155111, // Sepolia testnet
   });
 
-  const { data: yieldDelegation } = useReadContract({
+  const { data: compoundDelegation } = useReadContract({
     address: masterAgentAddress,
     abi: masterAgentABI,
     functionName: 'getDelegation',
-    args: address ? [address, yieldAgentAddress] : undefined,
+    args: address ? [address, yieldAgentCompoundAddress] : undefined,
+    chainId: 11155111, // Sepolia testnet
+  });
+
+  const { data: aaveDelegation } = useReadContract({
+    address: masterAgentAddress,
+    abi: masterAgentABI,
+    functionName: 'getDelegation',
+    args: address ? [address, yieldAgentAaveAddress] : undefined,
     chainId: 11155111, // Sepolia testnet
   });
 
@@ -62,7 +82,7 @@ export default function AnalyticsDashboard() {
 
   // Calculate stats
   const totalSchedules = Number(dcaScheduleCount || 0);
-  const totalStrategies = Number(yieldStrategyCount || 0);
+  const totalStrategies = Number(compoundStrategyCount || 0) + Number(aaveStrategyCount || 0);
 
   // Helper to calculate actual spent today considering daily reset (matches contract logic at MasterAgent.sol:113-115)
   const getActualSpentToday = (delegation: any) => {
@@ -80,9 +100,19 @@ export default function AnalyticsDashboard() {
   const dcaSpentToday = formatUnits(getActualSpentToday(dcaDelegation), 6);
   const dcaActive = dcaDelegation?.active ?? false;
 
-  const yieldDailyLimit = yieldDelegation?.dailyLimit !== undefined ? formatUnits(yieldDelegation.dailyLimit, 6) : '0';
-  const yieldSpentToday = formatUnits(getActualSpentToday(yieldDelegation), 6);
-  const yieldActive = yieldDelegation?.active ?? false;
+  // Combine both Compound and Aave yield delegations
+  const compoundDailyLimit = compoundDelegation?.dailyLimit !== undefined ? formatUnits(compoundDelegation.dailyLimit, 6) : '0';
+  const compoundSpentToday = formatUnits(getActualSpentToday(compoundDelegation), 6);
+  const compoundActive = compoundDelegation?.active ?? false;
+
+  const aaveDailyLimit = aaveDelegation?.dailyLimit !== undefined ? formatUnits(aaveDelegation.dailyLimit, 6) : '0';
+  const aaveSpentToday = formatUnits(getActualSpentToday(aaveDelegation), 6);
+  const aaveActive = aaveDelegation?.active ?? false;
+
+  // Combined yield metrics
+  const yieldDailyLimit = (parseFloat(compoundDailyLimit) + parseFloat(aaveDailyLimit)).toString();
+  const yieldSpentToday = (parseFloat(compoundSpentToday) + parseFloat(aaveSpentToday)).toString();
+  const yieldActive = compoundActive || aaveActive;
 
   const totalDailyLimit = parseFloat(dcaDailyLimit) + parseFloat(yieldDailyLimit);
   const totalSpentToday = parseFloat(dcaSpentToday) + parseFloat(yieldSpentToday);
