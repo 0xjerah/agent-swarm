@@ -1,8 +1,8 @@
 /*
  * AgentSwarm Event Handlers
- * Indexes events from MasterAgent, DCAAgent, and YieldAgent contracts
+ * Indexes events from MasterAgent, DCAAgent, YieldAgentAave, and YieldAgentCompound contracts
  */
-import { MasterAgent, DCAAgent, YieldAgent } from "generated";
+import { MasterAgent, DCAAgent, YieldAgentAave, YieldAgentCompound } from "generated";
 
 // ===== Helper Functions =====
 
@@ -454,8 +454,13 @@ DCAAgent.DCAScheduleCancelled.handler(async ({ event, context }) => {
 
 // ===== YieldAgent Event Handlers =====
 
-// 8. Yield Strategy Created Handler
-YieldAgent.YieldStrategyCreated.handler(async ({ event, context }) => {
+// Helper function to create yield strategy (used by both Aave and Compound)
+async function createYieldStrategy(
+  event: any,
+  context: any,
+  agentAddress: string,
+  protocol: 'aave' | 'compound'
+) {
   const timestamp = BigInt(event.block.timestamp);
   const userAddress = event.params.user.toLowerCase();
 
@@ -474,12 +479,14 @@ YieldAgent.YieldStrategyCreated.handler(async ({ event, context }) => {
   // Ensure user exists
   const user = await ensureUser(context, userAddress, timestamp);
 
-  // Create YieldStrategy entity
-  const strategyId = `${userAddress}-${event.params.strategyId}`;
+  // Create YieldStrategy entity with unique ID including contract address
+  const strategyId = `${userAddress}-${agentAddress.toLowerCase()}-${event.params.strategyId}`;
   context.YieldStrategy.set({
     id: strategyId,
     user: userAddress,
     strategyId: event.params.strategyId,
+    agentAddress: agentAddress.toLowerCase(),
+    protocol,
     totalDeposited: event.params.amount,
     totalWithdrawn: 0n,
     totalRewardsClaimed: 0n,
@@ -508,13 +515,27 @@ YieldAgent.YieldStrategyCreated.handler(async ({ event, context }) => {
     activeYieldStrategies: stats.activeYieldStrategies + 1n,
     totalYieldDeposited: stats.totalYieldDeposited + event.params.amount,
   });
+}
+
+// 8. Yield Strategy Created Handler - Aave
+YieldAgentAave.YieldStrategyCreated.handler(async ({ event, context }) => {
+  await createYieldStrategy(event, context, '0xb95adacB74E981bcfB1e97B4d277E51A95753C8F', 'aave');
 });
 
-// 9. Deposit Executed Handler
-YieldAgent.DepositExecuted.handler(async ({ event, context }) => {
+// 8b. Yield Strategy Created Handler - Compound
+YieldAgentCompound.YieldStrategyCreated.handler(async ({ event, context }) => {
+  await createYieldStrategy(event, context, '0x7cbD25A489917C3fAc92EFF1e37C3AE2afccbcf2', 'compound');
+});
+
+// 9. Deposit Executed Handler (helper for both protocols)
+async function handleDepositExecuted(
+  event: any,
+  context: any,
+  agentAddress: string
+) {
   const timestamp = BigInt(event.block.timestamp);
   const userAddress = event.params.user.toLowerCase();
-  const strategyId = `${userAddress}-${event.params.strategyId}`;
+  const strategyId = `${userAddress}-${agentAddress.toLowerCase()}-${event.params.strategyId}`;
 
   // Store raw event
   const txHash = event.block.hash;
@@ -555,13 +576,25 @@ YieldAgent.DepositExecuted.handler(async ({ event, context }) => {
     ...stats,
     totalYieldDeposited: stats.totalYieldDeposited + event.params.amount,
   });
+}
+
+YieldAgentAave.DepositExecuted.handler(async ({ event, context }) => {
+  await handleDepositExecuted(event, context, '0xb95adacB74E981bcfB1e97B4d277E51A95753C8F');
 });
 
-// 10. Withdrawal Executed Handler
-YieldAgent.WithdrawalExecuted.handler(async ({ event, context }) => {
+YieldAgentCompound.DepositExecuted.handler(async ({ event, context }) => {
+  await handleDepositExecuted(event, context, '0x7cbD25A489917C3fAc92EFF1e37C3AE2afccbcf2');
+});
+
+// 10. Withdrawal Executed Handler (helper for both protocols)
+async function handleWithdrawalExecuted(
+  event: any,
+  context: any,
+  agentAddress: string
+) {
   const timestamp = BigInt(event.block.timestamp);
   const userAddress = event.params.user.toLowerCase();
-  const strategyId = `${userAddress}-${event.params.strategyId}`;
+  const strategyId = `${userAddress}-${agentAddress.toLowerCase()}-${event.params.strategyId}`;
 
   // Store raw event
   const txHash = event.block.hash;
@@ -602,13 +635,22 @@ YieldAgent.WithdrawalExecuted.handler(async ({ event, context }) => {
     ...stats,
     totalYieldWithdrawn: stats.totalYieldWithdrawn + event.params.amountReceived,
   });
+}
+
+YieldAgentAave.WithdrawalExecuted.handler(async ({ event, context }) => {
+  await handleWithdrawalExecuted(event, context, '0xb95adacB74E981bcfB1e97B4d277E51A95753C8F');
 });
 
-// 11. Rewards Claimed Handler
-YieldAgent.RewardsClaimed.handler(async ({ event, context }) => {
+YieldAgentCompound.WithdrawalExecuted.handler(async ({ event, context }) => {
+  await handleWithdrawalExecuted(event, context, '0x7cbD25A489917C3fAc92EFF1e37C3AE2afccbcf2');
+});
+
+// 11. Rewards Claimed Handler (Aave only - Compound V3 doesn't have rewards)
+YieldAgentAave.RewardsClaimed.handler(async ({ event, context }) => {
   const timestamp = BigInt(event.block.timestamp);
   const userAddress = event.params.user.toLowerCase();
-  const strategyId = `${userAddress}-${event.params.strategyId}`;
+  const agentAddress = '0xb95adacB74E981bcfB1e97B4d277E51A95753C8F';
+  const strategyId = `${userAddress}-${agentAddress.toLowerCase()}-${event.params.strategyId}`;
 
   // Store raw event
   const txHash = event.block.hash;
@@ -649,30 +691,30 @@ YieldAgent.RewardsClaimed.handler(async ({ event, context }) => {
   });
 });
 
-// 12. Strategy Paused Handler
+// 12. Strategy Paused Handler (Aave only)
 // Note: StrategyPaused event only includes strategyId (global ID), not user address.
-// Since our YieldStrategy entities use composite IDs (user-strategyId), we cannot
+// Since our YieldStrategy entities use composite IDs (user-agentAddress-strategyId), we cannot
 // directly look up which strategy to pause without the user context.
 // This handler stores the raw event but does not update YieldStrategy entities.
 // If you need pause/unpause functionality, consider emitting user address in these events.
-YieldAgent.StrategyPaused.handler(async ({ event }) => {
+YieldAgentAave.StrategyPaused.handler(async ({ event }) => {
   const timestamp = BigInt(event.block.timestamp);
 
   // For now, we just log this event without updating strategies
   // since we can't determine which user's strategy this refers to
-  console.log(`Strategy ${event.params.strategyId} paused at ${timestamp}`);
+  console.log(`Aave Strategy ${event.params.strategyId} paused at ${timestamp}`);
 
   // TODO: If the contract is updated to include user address in pause events,
   // update this handler to modify the corresponding YieldStrategy entity
 });
 
-// 13. Strategy Unpaused Handler
+// 13. Strategy Unpaused Handler (Aave only)
 // Note: Same limitation as StrategyPaused - no user context to match strategies
-YieldAgent.StrategyUnpaused.handler(async ({ event }) => {
+YieldAgentAave.StrategyUnpaused.handler(async ({ event }) => {
   const timestamp = BigInt(event.block.timestamp);
 
   // For now, we just log this event without updating strategies
-  console.log(`Strategy ${event.params.strategyId} unpaused at ${timestamp}`);
+  console.log(`Aave Strategy ${event.params.strategyId} unpaused at ${timestamp}`);
 
   // TODO: If the contract is updated to include user address in unpause events,
   // update this handler to modify the corresponding YieldStrategy entity

@@ -213,9 +213,11 @@ type DCAExecution {
 
 # Yield Strategy entity - tracks yield positions
 type YieldStrategy {
-  id: ID!  # user-strategyId
+  id: ID!  # user-contractAddress-strategyId
   user: String!
   strategyId: BigInt!
+  agentAddress: String!  # Which yield agent contract (Compound or Aave)
+  protocol: String!  # "compound" or "aave"
 
   # Position tracking
   totalDeposited: BigInt!
