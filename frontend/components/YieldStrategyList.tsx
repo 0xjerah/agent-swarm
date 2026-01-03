@@ -2,7 +2,7 @@
 
 import { useAccount, useReadContract, useWriteContract, useWaitForTransactionReceipt } from 'wagmi';
 import { formatUnits } from 'viem';
-import { yieldAgentABI } from '@/lib/abis/generated/yieldAgent';
+import { yieldAgentCompoundABI } from '@/lib/abis/generated/yieldAgentCompound';
 import { masterAgentABI } from '@/lib/abis/generated/masterAgent';
 import { Loader2, XCircle, TrendingUp, DollarSign, AlertCircle, Clock } from 'lucide-react';
 
@@ -14,7 +14,7 @@ export default function YieldStrategyList() {
   // Get user's strategy count
   const { data: strategyCount, refetch: refetchCount } = useReadContract({
     address: yieldAgentAddress,
-    abi: yieldAgentABI,
+    abi: yieldAgentCompoundABI,
     functionName: 'getUserStrategyCount',
     args: address ? [address] : undefined,
     chainId: 11155111,
@@ -125,7 +125,7 @@ function StrategyCard({
   // Get strategy details
   const { data: strategy } = useReadContract({
     address: yieldAgentAddress,
-    abi: yieldAgentABI,
+    abi: yieldAgentCompoundABI,
     functionName: 'getStrategy',
     args: [userAddress, BigInt(strategyId)],
     chainId: 11155111,
@@ -146,7 +146,7 @@ function StrategyCard({
   const handleDeposit = () => {
     executeDeposit({
       address: yieldAgentAddress,
-      abi: yieldAgentABI,
+      abi: yieldAgentCompoundABI,
       functionName: 'executeDeposit',
       args: [userAddress, BigInt(strategyId)],
       chainId: 11155111,
@@ -157,7 +157,7 @@ function StrategyCard({
   const handleCancel = () => {
     cancelStrategy({
       address: yieldAgentAddress,
-      abi: yieldAgentABI,
+      abi: yieldAgentCompoundABI,
       functionName: 'deactivateStrategy',
       args: [BigInt(strategyId)],
       chainId: 11155111,
@@ -166,10 +166,9 @@ function StrategyCard({
 
   if (!strategy) return null;
 
-  // Destructure the strategy struct
+  // Destructure the strategy struct (Compound V3 doesn't have aToken)
   const {
     token,
-    aToken,
     strategyType: stratType,
     targetAllocation,
     currentDeposited,
@@ -178,7 +177,7 @@ function StrategyCard({
     active: isActive,
   } = strategy as any;
 
-  const strategyTypes = ['Aave Supply', 'Aave E-Mode'];
+  const strategyTypes = ['Compound Supply', 'Compound Collateral'];
   const strategyName = strategyTypes[Number(stratType)] || `Type ${stratType}`;
 
   // Calculate utilization percentage
@@ -325,7 +324,7 @@ function StrategyCard({
       {/* Success Messages */}
       {isDepositSuccess && (
         <div className="mt-3 bg-green-500/10 border border-green-500/30 text-green-300 px-4 py-2 rounded-lg text-sm">
-          ✓ Deposit executed successfully! Funds deployed to Aave V3.
+          ✓ Deposit executed successfully! Funds deployed to Compound V3.
         </div>
       )}
       {isCancelSuccess && (

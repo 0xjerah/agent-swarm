@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { useAccount, useWriteContract, useWaitForTransactionReceipt, useReadContract } from 'wagmi';
 import { parseUnits, formatUnits } from 'viem';
-import { yieldAgentABI } from '@/lib/abis/generated/yieldAgent';
+import { yieldAgentCompoundABI } from '@/lib/abis/generated/yieldAgentCompound';
 import { masterAgentABI } from '@/lib/abis/generated/masterAgent';
 import { TrendingUp, Loader2, CheckCircle, AlertCircle, Settings } from 'lucide-react';
 
@@ -16,8 +16,6 @@ export default function CreateYieldStrategy() {
   const yieldAgentAddress = process.env.NEXT_PUBLIC_YIELD_AGENT as `0x${string}`;
   const usdcAddress = process.env.NEXT_PUBLIC_USDC_ADDRESS as `0x${string}`;
   const masterAgentAddress = process.env.NEXT_PUBLIC_MASTER_AGENT as `0x${string}`;
-  // Aave V3 Sepolia aUSDC address
-  const aUsdcAddress = '0x16dA4541aD1807f4443d92D26044C1147406EB80' as `0x${string}`;
 
   // Read delegation data from MasterAgent
   const { data: delegation } = useReadContract({
@@ -39,11 +37,10 @@ export default function CreateYieldStrategy() {
 
     createStrategy({
       address: yieldAgentAddress,
-      abi: yieldAgentABI,
+      abi: yieldAgentCompoundABI,
       functionName: 'createYieldStrategy',
       args: [
         usdcAddress,
-        aUsdcAddress,
         parseInt(strategyType),
         parseUnits(amount, 6),
       ],
@@ -83,8 +80,8 @@ export default function CreateYieldStrategy() {
   const shouldShowStatus = amount && parseFloat(amount) > 0;
 
   const strategies = [
-    { value: '0', name: 'Aave Supply', apy: '4.50%', risk: 'Low', description: 'Earn stable yield on Aave V3' },
-    { value: '1', name: 'Aave E-Mode', apy: '5.20%', risk: 'Low', description: 'Enhanced efficiency mode for higher yields' },
+    { value: '0', name: 'Compound Supply', apy: '3.50%', risk: 'Low', description: 'Earn stable yield on Compound V3' },
+    { value: '1', name: 'Compound Collateral', apy: '4.20%', risk: 'Low', description: 'Use as collateral for higher yields' },
   ];
 
   return (
