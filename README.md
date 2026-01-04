@@ -167,7 +167,7 @@ AgentSwarm uses **Envio HyperSync** for real-time blockchain indexing, providing
 
 #### Envio Configuration
 - **Contract Configuration**: [indexer/config.yaml](indexer/config.yaml) - Defines all contracts and events to index
-- **Deployment**: Auto-deployed to [https://indexer.dev.hyperindex.xyz/f171fe6/v1/graphql](https://indexer.dev.hyperindex.xyz/f171fe6/v1/graphql)
+- **Deployment**: Auto-deployed to [https://indexer.dev.hyperindex.xyz/b786978/v1/graphql](https://indexer.dev.hyperindex.xyz/b786978/v1/graphql)
 
 #### Automation (Keeper Bot)
 - **Keeper Service**: [automation/keeper-envio.js](automation/keeper-envio.js) - Envio-powered autonomous execution bot
@@ -317,7 +317,7 @@ npm install
 # Configure .env
 KEEPER_PRIVATE_KEY=0x...
 DCA_AGENT_ADDRESS=0xA86e7b31fA6a77186F09F36C06b2E7c5D3132795
-ENVIO_GRAPHQL_URL=https://indexer.dev.hyperindex.xyz/f171fe6/v1/graphql
+ENVIO_GRAPHQL_URL=https://indexer.dev.hyperindex.xyz/b786978/v1/graphql
 CHECK_INTERVAL=60  # seconds
 MAX_GAS_PRICE=50000000000  # 50 gwei
 
@@ -512,7 +512,7 @@ DCAAgent:             0xA86e7b31fA6a77186F09F36C06b2E7c5D3132795
 YieldAgentAave:       0xb95adacB74E981bcfB1e97B4d277E51A95753C8F
 YieldAgentCompound:   0x7cbD25A489917C3fAc92EFF1e37C3AE2afccbcf2
 
-Envio GraphQL:        https://indexer.dev.hyperindex.xyz/f171fe6/v1/graphql
+Envio GraphQL:        https://indexer.dev.hyperindex.xyz/b786978/v1/graphql
 ```
 
 **Verify on Etherscan:**
@@ -758,10 +758,6 @@ Our experience building AgentSwarm with ERC-7715 Advanced Permissions and Envio 
 3. **Permission Templates**: Pre-defined permission sets for common DeFi use cases (DCA, yield farming, etc.)
 4. **Event Notifications**: Browser notifications when permissions are about to expire
 
-**GitHub Issues:**
-- [Issue #1: Improve ERC-7715 error messaging and network detection](https://github.com/0xjerah/agent-swarm/issues/1)
-- [Issue #2: Add multi-token permission support](https://github.com/0xjerah/agent-swarm/issues/2)
-
 ---
 
 ### Envio Indexing Feedback
@@ -786,9 +782,6 @@ Our experience building AgentSwarm with ERC-7715 Advanced Permissions and Envio 
 4. **Subscription Support**: GraphQL subscriptions for real-time updates instead of polling
 5. **Query Cost Analysis**: Dashboard showing query performance and optimization suggestions
 
-**GitHub Issues:**
-- [Issue #3: Add historical event backfill support](https://github.com/0xjerah/agent-swarm/issues/3)
-- [Issue #4: Request GraphQL subscription support for real-time updates](https://github.com/0xjerah/agent-swarm/issues/4)
 
 ---
 
@@ -820,10 +813,7 @@ Follow our journey building AgentSwarm with MetaMask Advanced Permissions (ERC-7
 This thread showcases:
 - How MetaMask Advanced Permissions transformed our UX from requiring 10+ wallet popups to just ONE permission grant
 - Real-world performance gains with Envio indexing (10x faster than RPC polling)
-- Complete development journey from concept to working autonomous DeFi agents
-- Technical deep dives into ERC-7715 implementation and Envio schema design
 
-Tagging @MetaMaskDev for pioneering the Advanced Permissions standard that made truly autonomous DeFi possible.
 
 ---
 
