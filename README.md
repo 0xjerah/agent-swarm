@@ -693,8 +693,6 @@ npm test
 
 ---
 
-## Documentation
-
 - **[ERC7715_SETUP_GUIDE.md](ERC7715_SETUP_GUIDE.md)** - Detailed ERC-7715 integration guide
 - **[ENVIO_SETUP_COMPLETE.md](ENVIO_SETUP_COMPLETE.md)** - Envio indexer configuration
 - **[DEPLOYMENT_GUIDE.md](DEPLOYMENT_GUIDE.md)** - Smart contract deployment steps
