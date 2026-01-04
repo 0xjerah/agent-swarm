@@ -808,7 +808,7 @@ Both technologies are production-ready and exceeded our expectations.
 
 Follow our journey building AgentSwarm with MetaMask Advanced Permissions (ERC-7715) and Envio indexing.
 
-**Twitter/X Thread**: [https://x.com/your_handle/status/TWEET_ID](https://x.com/your_handle/status/TWEET_ID)
+**Twitter/X Thread**: [https://x.com/i/status/2002033603593564416](https://x.com/i/status/2002033603593564416)
 
 This thread showcases:
 - How MetaMask Advanced Permissions transformed our UX from requiring 10+ wallet popups to just ONE permission grant
