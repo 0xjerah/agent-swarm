@@ -734,6 +734,99 @@ npm test
 
 ---
 
+## Feedback
+
+Our experience building AgentSwarm with ERC-7715 Advanced Permissions and Envio indexing during this hackathon.
+
+### ERC-7715 Advanced Permissions Feedback
+
+**What Worked Exceptionally Well:**
+- The `wallet_grantPermissions` API is intuitive and well-designed
+- Permission policies (token-allowance, rate-limit) are flexible and cover real-world use cases
+- MetaMask Flask's implementation is stable and reliable
+- The off-chain permission signature → on-chain enforcement pattern is elegant
+
+**Challenges Encountered:**
+- **Documentation Gap**: Limited examples for autonomous agent use cases. Most examples focus on simple transfers rather than delegated smart contract execution.
+- **MetaMask Flask Requirement**: Regular MetaMask doesn't support ERC-7715 yet, which creates friction for user onboarding. Clear messaging about Flask requirement is critical.
+- **Error Messages**: When permission requests fail, error messages could be more descriptive. For example, distinguishing between "Snap not installed" vs "Permission denied by user" vs "Invalid policy format".
+- **Network Switching**: Permission requests sometimes fail silently if wallet is on wrong network. Need explicit network checks before requesting permissions.
+
+**Feature Requests:**
+1. **Multi-Token Permissions**: Ability to grant permissions for multiple tokens (USDC + WETH) in a single request
+2. **Batch Permission Updates**: Update daily limits or expiry without revoking and re-granting
+3. **Permission Templates**: Pre-defined permission sets for common DeFi use cases (DCA, yield farming, etc.)
+4. **Event Notifications**: Browser notifications when permissions are about to expire
+
+**GitHub Issues:**
+- [Issue #1: Improve ERC-7715 error messaging and network detection](https://github.com/0xjerah/agent-swarm/issues/1)
+- [Issue #2: Add multi-token permission support](https://github.com/0xjerah/agent-swarm/issues/2)
+
+---
+
+### Envio Indexing Feedback
+
+**What Worked Exceptionally Well:**
+- **Incredible Performance**: <100ms GraphQL queries vs 5-10 seconds with RPC polling. Game-changing.
+- **Developer Experience**: Schema-first approach with automatic TypeScript generation is excellent
+- **Real-Time Updates**: Events indexed within seconds of block confirmation
+- **Auto-Deployment**: Push to branch → automatic redeployment is seamless
+- **Multi-Contract Support**: Indexing 4 different contracts with unified GraphQL API was trivial
+
+**Challenges Encountered:**
+- **Historical Data**: When redeploying with schema changes, historical events aren't automatically reindexed. Strategies created before new deployment didn't appear until new events were emitted.
+- **Local Development**: Running indexer locally requires PostgreSQL setup. A lightweight SQLite option for development would be helpful.
+- **Error Debugging**: When event handlers fail, stack traces could be more descriptive about which event/block caused the issue.
+- **Schema Migrations**: No built-in migration system. Changing entity structure requires manual data migration or fresh deployment.
+
+**Feature Requests:**
+1. **Backfill Support**: Ability to trigger historical event reindexing after schema changes
+2. **Local Dev Mode**: SQLite-based local indexer for faster iteration without PostgreSQL
+3. **Computed Fields**: Support for derived/computed fields in schema (e.g., `nextExecutionTime` calculated from `lastExecutedAt + intervalSeconds`)
+4. **Subscription Support**: GraphQL subscriptions for real-time updates instead of polling
+5. **Query Cost Analysis**: Dashboard showing query performance and optimization suggestions
+
+**GitHub Issues:**
+- [Issue #3: Add historical event backfill support](https://github.com/0xjerah/agent-swarm/issues/3)
+- [Issue #4: Request GraphQL subscription support for real-time updates](https://github.com/0xjerah/agent-swarm/issues/4)
+
+---
+
+### Overall Hackathon Experience
+
+**The Combination is Powerful:**
+ERC-7715 + Envio together enabled something we couldn't build with either alone:
+- ERC-7715 makes autonomous execution possible (no wallet popups)
+- Envio makes it observable and automatable (keeper bot relies on indexed data)
+
+**What We'd Change:**
+- More real-world examples combining both technologies
+- Starter templates for common patterns (DeFi automation, gaming, NFT management)
+- Better onboarding documentation for developers new to both technologies
+
+**Impact:**
+Building AgentSwarm changed our perspective on what's possible in DeFi UX. We went from "automation requires sacrificing security" to "automation with granular control is the new standard."
+
+Both technologies are production-ready and exceeded our expectations.
+
+---
+
+## Social Media
+
+Follow our journey building AgentSwarm with MetaMask Advanced Permissions (ERC-7715) and Envio indexing.
+
+**Twitter/X Thread**: [https://x.com/your_handle/status/TWEET_ID](https://x.com/your_handle/status/TWEET_ID)
+
+This thread showcases:
+- How MetaMask Advanced Permissions transformed our UX from requiring 10+ wallet popups to just ONE permission grant
+- Real-world performance gains with Envio indexing (10x faster than RPC polling)
+- Complete development journey from concept to working autonomous DeFi agents
+- Technical deep dives into ERC-7715 implementation and Envio schema design
+
+Tagging @MetaMaskDev for pioneering the Advanced Permissions standard that made truly autonomous DeFi possible.
+
+---
+
 ## Team
 
 Built for the ERC-7715 & Envio ecosystem
