@@ -11,7 +11,13 @@ networks:
     handler: src/EventHandlers.ts
     events:
     - event: PermissionDelegated(address indexed user, address indexed agent, uint256 dailyLimit, uint256 expiry)
+      field_selection:
+        transaction_fields:
+          - hash
     - event: PermissionRevoked(address indexed user, address indexed agent)
+      field_selection:
+        transaction_fields:
+          - hash
     - event: AgentRegistered(address indexed agent, string name)
     - event: TransferExecuted(address indexed user, address indexed agent, address indexed token, uint256 amount, address recipient)
 
@@ -22,8 +28,17 @@ networks:
     handler: src/EventHandlers.ts
     events:
     - event: DCAScheduleCreated(address indexed user, uint256 indexed scheduleId, uint256 amountPerPurchase, uint256 intervalSeconds, uint24 poolFee)
+      field_selection:
+        transaction_fields:
+          - hash
     - event: DCAExecuted(address indexed user, uint256 indexed scheduleId, uint256 amountSpent, uint256 amountReceived)
+      field_selection:
+        transaction_fields:
+          - hash
     - event: DCAScheduleCancelled(address indexed user, uint256 indexed scheduleId)
+      field_selection:
+        transaction_fields:
+          - hash
 
   # YieldAgentAave - Handles Aave V3 yield strategies
   - name: YieldAgentAave
@@ -32,9 +47,21 @@ networks:
     handler: src/EventHandlers.ts
     events:
     - event: YieldStrategyCreated(address indexed user, uint256 indexed strategyId, uint256 amount)
+      field_selection:
+        transaction_fields:
+          - hash
     - event: DepositExecuted(address indexed user, uint256 indexed strategyId, uint256 amount, uint256 sharesReceived)
+      field_selection:
+        transaction_fields:
+          - hash
     - event: WithdrawalExecuted(address indexed user, uint256 indexed strategyId, uint256 shares, uint256 amountReceived)
+      field_selection:
+        transaction_fields:
+          - hash
     - event: RewardsClaimed(address indexed user, uint256 indexed strategyId, uint256 rewardAmount)
+      field_selection:
+        transaction_fields:
+          - hash
     - event: StrategyPaused(uint256 indexed strategyId)
     - event: StrategyUnpaused(uint256 indexed strategyId)
 
@@ -45,8 +72,17 @@ networks:
     handler: src/EventHandlers.ts
     events:
     - event: YieldStrategyCreated(address indexed user, uint256 indexed strategyId, uint256 amount)
+      field_selection:
+        transaction_fields:
+          - hash
     - event: DepositExecuted(address indexed user, uint256 indexed strategyId, uint256 amount, uint256 sharesReceived)
+      field_selection:
+        transaction_fields:
+          - hash
     - event: WithdrawalExecuted(address indexed user, uint256 indexed strategyId, uint256 shares, uint256 amountReceived)
+      field_selection:
+        transaction_fields:
+          - hash
 
 unordered_multichain_mode: false
 preload_handlers: true

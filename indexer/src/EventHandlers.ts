@@ -85,7 +85,7 @@ MasterAgent.PermissionDelegated.handler(async ({ event, context }) => {
   const agentAddress = event.params.agent.toLowerCase();
 
   // Store raw event
-  const txHash = event.block.hash;
+  const txHash = event.transaction.hash;
   context.MasterAgent_PermissionDelegated.set({
     id: `${event.chainId}_${event.block.number}_${event.logIndex}`,
     user: userAddress,
@@ -157,7 +157,7 @@ MasterAgent.PermissionRevoked.handler(async ({ event, context }) => {
   const agentAddress = event.params.agent.toLowerCase();
 
   // Store raw event
-  const txHash = event.block.hash;
+  const txHash = event.transaction.hash;
   context.MasterAgent_PermissionRevoked.set({
     id: `${event.chainId}_${event.block.number}_${event.logIndex}`,
     user: userAddress,
@@ -277,7 +277,7 @@ DCAAgent.DCAScheduleCreated.handler(async ({ event, context }) => {
   const userAddress = event.params.user.toLowerCase();
 
   // Store raw event
-  const txHash = event.block.hash;
+  const txHash = event.transaction.hash;
   context.DCAAgent_DCAScheduleCreated.set({
     id: `${event.chainId}_${event.block.number}_${event.logIndex}`,
     user: userAddress,
@@ -340,7 +340,7 @@ DCAAgent.DCAExecuted.handler(async ({ event, context }) => {
   const price = wethReceived > 0 ? (usdcSpent / wethReceived).toFixed(6) : "0";
 
   // Store raw event
-  const txHash = event.block.hash;
+  const txHash = event.transaction.hash;
   context.DCAAgent_DCAExecuted.set({
     id: `${event.chainId}_${event.block.number}_${event.logIndex}`,
     user: userAddress,
@@ -354,7 +354,7 @@ DCAAgent.DCAExecuted.handler(async ({ event, context }) => {
 
   // Create DCAExecution entity
   context.DCAExecution.set({
-    id: `${event.block.hash}-${event.logIndex}`,
+    id: `${txHash}-${event.logIndex}`,
     user: userAddress,
     scheduleId: event.params.scheduleId,
     amountSpent: event.params.amountSpent,
@@ -415,7 +415,7 @@ DCAAgent.DCAScheduleCancelled.handler(async ({ event, context }) => {
   const scheduleId = `${userAddress}-${event.params.scheduleId}`;
 
   // Store raw event
-  const txHash = event.block.hash;
+  const txHash = event.transaction.hash;
   context.DCAAgent_DCAScheduleCancelled.set({
     id: `${event.chainId}_${event.block.number}_${event.logIndex}`,
     user: userAddress,
@@ -465,7 +465,7 @@ async function createYieldStrategy(
   const userAddress = event.params.user.toLowerCase();
 
   // Store raw event
-  const txHash = event.block.hash;
+  const txHash = event.transaction.hash;
   context.YieldAgent_YieldStrategyCreated.set({
     id: `${event.chainId}_${event.block.number}_${event.logIndex}`,
     user: userAddress,
@@ -538,7 +538,7 @@ async function handleDepositExecuted(
   const strategyId = `${userAddress}-${agentAddress.toLowerCase()}-${event.params.strategyId}`;
 
   // Store raw event
-  const txHash = event.block.hash;
+  const txHash = event.transaction.hash;
   context.YieldAgent_DepositExecuted.set({
     id: `${event.chainId}_${event.block.number}_${event.logIndex}`,
     user: userAddress,
@@ -597,7 +597,7 @@ async function handleWithdrawalExecuted(
   const strategyId = `${userAddress}-${agentAddress.toLowerCase()}-${event.params.strategyId}`;
 
   // Store raw event
-  const txHash = event.block.hash;
+  const txHash = event.transaction.hash;
   context.YieldAgent_WithdrawalExecuted.set({
     id: `${event.chainId}_${event.block.number}_${event.logIndex}`,
     user: userAddress,
@@ -653,7 +653,7 @@ YieldAgentAave.RewardsClaimed.handler(async ({ event, context }) => {
   const strategyId = `${userAddress}-${agentAddress.toLowerCase()}-${event.params.strategyId}`;
 
   // Store raw event
-  const txHash = event.block.hash;
+  const txHash = event.transaction.hash;
   context.YieldAgent_RewardsClaimed.set({
     id: `${event.chainId}_${event.block.number}_${event.logIndex}`,
     user: userAddress,
