@@ -691,14 +691,6 @@ npm test
 # ✓ GraphQL schema matches entities
 ```
 
----
-
-- **[ERC7715_SETUP_GUIDE.md](ERC7715_SETUP_GUIDE.md)** - Detailed ERC-7715 integration guide
-- **[ENVIO_SETUP_COMPLETE.md](ENVIO_SETUP_COMPLETE.md)** - Envio indexer configuration
-- **[DEPLOYMENT_GUIDE.md](DEPLOYMENT_GUIDE.md)** - Smart contract deployment steps
-- **[AUTOMATION_SETUP.md](AUTOMATION_SETUP.md)** - Keeper network setup
-
----
 
 ## What Makes This Special
 
