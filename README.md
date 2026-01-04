@@ -72,7 +72,7 @@ AgentSwarm implements **ERC-7715 Advanced Permissions** to enable secure, autono
 
 ### Requesting Advanced Permissions
 
-**Code Location**: [frontend/components/DelegateFunds.tsx:147-179](frontend/components/DelegateFunds.tsx#L147-L179)
+**Code Location**: [frontend/components/DelegatePermission.tsx:122-186](frontend/components/DelegatePermission.tsx#L122-L186)
 
 We request ERC-7715 permissions using the `wallet_grantPermissions` method with token-specific policies:
 
